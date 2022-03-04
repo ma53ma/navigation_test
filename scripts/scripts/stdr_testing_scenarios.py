@@ -129,8 +129,6 @@ class CampusScenario(TestingScenario):
 
         self.random = random.Random()
         self.random.seed(self.seed)
-        
-
 
         self.init_pose = Pose()
         self.init_pose.position.x = -12
@@ -172,6 +170,36 @@ class CampusScenario(TestingScenario):
 
         zones = [Zone1,Zone2,Zone3,Zone4,Zone5,Zone6,Zone7,Zone8,Zone9,Zone10,Zone11,Zone12,Zone13]
 
+        # structure is top_left, bottom_right, xyxy
+        self.obstacles = [[1.5, 5, 3.5, 1.5],
+                     [4.5, 5, 6, 1.5],
+                     [7, 5, 8.75, 1.5],
+                     [8.75, 3, 12.5, 1.5],
+                     [11, 7.5, 15, 6],
+                     [13.5, 6, 15, 1.5],
+                     [21.5, 6, 27, 1.75],
+                     [0, 12.5, 5, 8],
+                     [7, 13, 9, 8.75],
+                     [17.5, 13.5, 24.5, 8],
+                     [0, 27, 3.5, 24],
+                     [4.75, 27, 9.5, 24],
+                     [11.25, 25.75, 12.5, 21.75],
+                     [15.5, 28.25, 18.5, 25.75],
+                     [19.5, 28.25, 22.5, 25.75],
+                     [15.75, 24, 26.75, 21.5],
+                     [23.75, 21.25, 29, 17.75]]
+        '''
+        self.obstacle_spawns = np.array([[0.5, 14.5],
+                                         [13, 25],
+                                         [5.5, 16],
+                                         [15, 22],
+                                         [6.5, 6],
+                                         [20, 21],
+                                         [4, 12.5],
+                                         [23, 18]]) #,[7, 1],[13, 1],[19, 1],[25, 1],[1, 29],[5, 29],[8, 29],[19, 29],[25, 29]]
+        self.obstacle_goals = np.flip(self.obstacle_spawns, axis=0)
+        print('GOALS: ', self.obstacle_goals)
+        '''
         zones = np.swapaxes(zones,0,2)
         self.minx = zones[0][0]
         self.maxx = zones[0][1]
@@ -203,6 +231,7 @@ class CampusScenario(TestingScenario):
 
     def getGoal(self):
         pose = self.target_poses[self.target_id]
+        # pose = [-10, .5, 0]
         pose_msg = self.getPoseMsg(pose=pose)
         pose_stamped = PoseStamped()
         pose_stamped.pose = pose_msg
@@ -229,6 +258,73 @@ class StereoCampusObstacleScenario(CampusObstacleScenario):
 
         self.world = "stereo_campus_obstacle"
 
+class EmptyScenario(TestingScenario):
+    def __init__(self, task, goal_frame):
+        self.goal_frame = goal_frame
+        self.world = "empty"
+        self.seed = task["seed"] if "seed" in task else 0
+        self.poses = [[-9,9,-.78], [-9,0,0], [-9,-9,.78], [9,-9,2.36], [9,0,3.14], [9,9,-2.36]   ] # [0,-9,1.57]
+        self.init_id = task["init_id"] if "init_id" in task else 0
+        self.target_id = task["target_id"] if "target_id" in task else (self.init_id + len(self.poses)/2) % len(self.poses)
+        self.random = random.Random()
+        self.random.seed(self.seed)
+
+        # self.num_obsts = 15
+        #self.obstacle_spawns = np.array(
+        #    [[14, 15], [14.5, 15], [15, 15], [15.5, 15], [15, 15]])
+        self.obstacle_spawns = np.array(
+            [[7, 9], [19, 9]])
+        #self.obstacle_spawns = np.add(np.random.randint(17, size=(self.num_obsts, 2)), 6)
+        #self.obstacle_goals = np.array(
+        #    [[13, 5], [14, 5], [15, 5], [16, 5], [17, 5]])
+        self.obstacle_goals = np.array(
+            [[19, 9], [7, 9]])
+        #self.obstacle_goals = np.add(np.random.randint(17, size=(self.num_obsts, 2)), 6)
+        #self.obstacle_backup_goals = np.add(np.random.randint(17, size=(self.num_obsts, 2)), 6)
+        #self.obstacle_backup_goals = np.array(
+        #    [[14, 23], [14.5, 23], [15, 25], [15.5, 23], [15, 23]])
+        self.obstacle_backup_goals = np.array(
+            [[5, 10], [23, 10]])
+        self.obstacles = []
+
+    @staticmethod
+    def getUniqueFieldNames():
+        return ["num_obstacles", "seed", "target_id", "init_id"]
+
+    def getPoseMsg(self, pose):
+        pose_msg = Pose()
+        pose_msg.position.x = pose[0]
+        pose_msg.position.y = pose[1]
+
+        q = tf.transformations.quaternion_from_euler(0, 0, pose[2])
+        # msg = Quaternion(*q)
+
+        pose_msg.orientation = Quaternion(*q)
+
+        return pose_msg
+
+
+    # if i do random starts and goals, they can spawn pretty close to each other
+    def getStartingPose(self):
+        # ranges from -9 to 9 --> let's only spawn -9 to -7
+        x = self.random.random()*(18) - 9
+        y = -9 #self.random.random()*(18) - 9
+        pose = [0, -9, 0] #[x, y, 0]
+        init_pose = self.getPoseMsg(pose=pose)
+
+        return init_pose
+
+    def getGoal(self):
+        x = self.random.random()*(18) - 9
+        y = self.random.random()*(18) - 9
+
+        pose = [0, 9, 3.14] # [0, y, 3.14]
+        init_pose = self.getPoseMsg(pose=pose)
+        pose_stamped = PoseStamped()
+        pose_stamped.pose = init_pose
+        pose_stamped.header.frame_id=self.goal_frame
+        return pose_stamped
+
 class SectorScenario(TestingScenario):
     def __init__(self, task, goal_frame):
         self.goal_frame = goal_frame
@@ -239,6 +335,7 @@ class SectorScenario(TestingScenario):
         self.target_id = task["target_id"] if "target_id" in task else (self.init_id + len(self.poses)/2) % len(self.poses)
         self.random = random.Random()
         self.random.seed(self.seed)
+
 
     @staticmethod
     def getUniqueFieldNames():

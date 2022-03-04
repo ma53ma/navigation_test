@@ -175,6 +175,13 @@ class MultiMasterCoordinator:
                             'min_obstacle_spacing' : min_obstacle_spacing}
                     self.task_queue.put(task)
 
+        #task = {'controller': 'potentialgap',
+        #        'seed': 0,
+        #        'scenario': 'full_sector_laser',
+        #        'robot': 'turtlebot',
+        #        'min_obstacle_spacing': 1}
+        # self.task_queue.put(task)
+
     def addDemoTask(self):
         task = {'controller': 'teb',
                 'seed': 0,
@@ -399,6 +406,7 @@ class GazeboMaster(mp.Process):
             self.gazebo_launch.shutdown()
 
         self.current_world = world
+        # print('world: ', world)
 
 
         # This will wait for a roscore if necessary, so as long as we detect any failures
@@ -442,7 +450,7 @@ class GazeboMaster(mp.Process):
 
 
 if __name__ == "__main__":
-    num_instances = 3
+    num_instances = 1
     start_time = time.time()
     master = MultiMasterCoordinator(num_instances)
     master.start()

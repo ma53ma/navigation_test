@@ -8,7 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
   map_server
   move_base
   tf
-  turtlebot_bringup
+  turtlebot3_bringup
 )
 
 ## System dependencies are found with CMake's conventions

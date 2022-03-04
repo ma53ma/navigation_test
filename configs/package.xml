@@ -43,12 +43,12 @@
   <build_depend>map_server</build_depend>
   <build_depend>move_base</build_depend>
   <build_depend>tf</build_depend>
-  <build_depend>turtlebot_bringup</build_depend>
+  <build_depend>turtlebot3_bringup</build_depend>
   <run_depend>map_server</run_depend>
   <run_depend>move_base</run_depend>
   <run_depend>tf</run_depend>
-  <run_depend>turtlebot_bringup</run_depend>
-  <run_depend>turtlebot_gazebo</run_depend>
+  <run_depend>turtlebot3_bringup</run_depend>
+  <run_depend>turtlebot3_gazebo</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

@@ -24,6 +24,9 @@ from actionlib_msgs.msg import GoalStatus
 
 import socket
 import contextlib
+import tf
+import numpy as np
+import nav_msgs.srv
 
 from stdr_testing_scenarios import TestingScenarios
 
@@ -33,26 +36,35 @@ import rospy
 import csv
 import datetime
 import tf2_ros
-from stdr_testing_scenarios import SectorScenario, CampusScenario, FourthFloorScenario, SparseScenario
+from stdr_testing_scenarios import SectorScenario, CampusScenario, FourthFloorScenario, SparseScenario, EmptyScenario
 import rosbag
 from tf2_msgs.msg import TFMessage
 from sensor_msgs.msg import LaserScan
 
 from visualization_msgs.msg import MarkerArray
-from geometry_msgs.msg import PoseArray
+from geometry_msgs.msg import PoseArray, Pose, PoseStamped, Quaternion
+from rosgraph_msgs.msg import Log
 
 class BumperChecker:
-    def __init__(self):
-        self.sub = rospy.Subscriber("robot0/bumpers", Range, self.bumperCB, queue_size=5)
+    def __init__(self, num_obsts):
+        self.sub = rospy.Subscriber("robot" + str(num_obsts) + "/bumpers", Range, self.bumperCB, queue_size=5)
+        self.mod_sub = rospy.Subscriber("robot" + str(num_obsts) + "/mod_bumpers", Range, self.mod_bumperCB, queue_size=5)
+
         self.collided = False
 
     def bumperCB(self, data):
         if data.range < 0:
+            print('~~~~~~~~~~~ NORMAL BUMPER COLLISION ~~~~~~~~~~~~~~')
+            self.collided = True
+
+    def mod_bumperCB(self, data):
+        if data.range < 0:
+            print('~~~~~~~~~~~ MOD BUMPER COLLISION ~~~~~~~~~~~~~~')
             self.collided = True
 
 class OdomAccumulator:
-    def __init__(self):
-        self.feedback_subscriber = rospy.Subscriber("/robot0/odom", Odometry, self.odomCB, queue_size=5)
+    def __init__(self, num_obsts):
+        self.feedback_subscriber = rospy.Subscriber("robot" + str(num_obsts) + "/odom", Odometry, self.odomCB, queue_size=5)
         self.path_length = 0
         self.prev_msg = None
 
@@ -78,11 +90,11 @@ class ResultRecorder:
         self.scan_sub = rospy.Subscriber("point_scan", LaserScan, self.scan_cb, queue_size = 5)
         self.score_sub = rospy.Subscriber("traj_score", MarkerArray, self.score_cb, queue_size = 5)
         self.traj_sub = rospy.Subscriber("all_traj_vis", MarkerArray, self.traj_cb, queue_size = 5)
-        self.exe_traj_sub = rospy.Subscriber("pg_traj", PoseArray, self.exe_traj_cb, queue_size = 5)
+        self.exe_traj_sub = rospy.Subscriber("dg_traj", PoseArray, self.exe_traj_cb, queue_size = 5)
 
         bagpath = "~/simulation_data/bagfile/" + str(datetime.datetime.now()) + "_" + str(taskid) + ".bag"
         self.bagfilepath = os.path.expanduser(bagpath)
-        print "bag file = " + self.bagfilepath + "\n"
+        print("bag file = " + self.bagfilepath + "\n")
         self.bagfile = rosbag.Bag(f=self.bagfilepath, mode='w', compression=rosbag.Compression.LZ4)
         self.scan_data = None
         self.tf_data = None
@@ -92,7 +104,7 @@ class ResultRecorder:
         if self.tf_data is None or self.bag_closed:
             return
         self.lock.acquire()
-        self.bagfile.write("pg_traj", data, self.tf_data.transforms[0].header.stamp)
+        self.bagfile.write("dg_traj", data, self.tf_data.transforms[0].header.stamp)
         self.lock.release()
         rospy.logdebug("Exe Traj written")
 
@@ -120,7 +132,7 @@ class ResultRecorder:
         self.bagfile.write("point_scan", data, data.header.stamp)
         self.lock.release()
         rospy.logdebug("Laserscan written")
-    
+
     def tf_cb(self, data):
         if self.bag_closed:
             return
@@ -140,86 +152,6 @@ class ResultRecorder:
         self.bagfile.close()
         self.lock.release()
         rospy.logdebug("Result finished")
-
-# Send goal to Move base and receive result
-def run_test(goal_pose, record = False, taskid=0):
-    bumper_checker = BumperChecker()
-    odom_accumulator = OdomAccumulator()
-
-    if record:
-        result_recorder = ResultRecorder(taskid)
-
-    client = actionlib.SimpleActionClient('move_base', MoveBaseAction) # potential_gap_egocircle_path_follower
-    print "waiting for server"
-    client.wait_for_server()
-    print "Done!"
-
-    goal = MoveBaseGoal()
-    goal.target_pose = goal_pose
-    goal.target_pose.header.stamp = rospy.Time.now()
-    goal.target_pose.header.frame_id = 'map_static'
-
-    print "sending goal"
-    client.send_goal(goal)
-    print "waiting for result"
-
-    r = rospy.Rate(5)
-    start_time = rospy.Time.now()
-    result = None
-
-    keep_waiting = True
-    counter = 0
-    result = None
-    while keep_waiting:
-        try:
-            state = client.get_state()
-            if state is not GoalStatus.ACTIVE and state is not GoalStatus.PENDING:
-                keep_waiting = False
-            elif bumper_checker.collided:
-                keep_waiting = False
-                result = "BUMPER_COLLISION"
-            elif (rospy.Time.now() - start_time > rospy.Duration(600)):
-                keep_waiting = False
-                result = "TIMED_OUT"
-            else:
-                counter += 1
-                # if blocks, sim time cannot be 0
-                r.sleep()
-        except:
-            keep_waiting = "False"
-            
-
-    print result
-    task_time = str(rospy.Time.now() - start_time)
-    path_length = str(odom_accumulator.getPathLength())
-
-    if record:
-        print "Acquire Record Done"
-        result_recorder.done()
-        print "Acquired"
-
-    if result is None:
-        print "done!"
-        print "getting goal status"
-        print(client.get_goal_status_text())
-        print "done!"
-        print "returning state number"
-        state = client.get_state()
-        if state == GoalStatus.SUCCEEDED:
-            result = "SUCCEEDED"
-        elif state == GoalStatus.ABORTED:
-            result = "ABORTED"
-        elif state == GoalStatus.LOST:
-            result = "LOST"
-        elif state == GoalStatus.REJECTED:
-            result = "REJECTED"
-        elif state == GoalStatus.ACTIVE:
-            result = "TIMED_OUT"
-        else:
-            result = "UNKNOWN"
-    print result
-    
-    return {'result': result, 'time': task_time, 'path_length': path_length}
 
 def port_in_use(port):
     with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
@@ -257,6 +189,7 @@ class MultiMasterCoordinator:
         self.fieldnames.extend(["fov", "radial_extend", "projection", "r_min", 'r_norm', 'k_po', 'reduction_threshold', 'reduction_target'])
         self.fieldnames.extend(["sim_time", "obstacle_cost_mode", "sum_scores"])
         self.fieldnames.extend(["bag_file_path",'converter', 'costmap_converter_plugin', 'global_planning_freq', 'feasibility_check_no_poses', 'simple_exploration', 'weight_gap', 'gap_boundary_exponent', 'egocircle_early_pruning', 'gap_boundary_threshold', 'gap_boundary_ratio', 'feasibility_check_no_tebs', 'gap_exploration', 'gap_h_signature', ])
+        self.world_queue = []
 
     def start(self):
         self.startResultsProcessing()
@@ -364,22 +297,23 @@ class MultiMasterCoordinator:
 
     # This list should be elsewhere, possibly in the configs package
     def addTasks(self):
-        worlds = ["dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
-        fovs = ['90', '120', '180', '240', '300', '360']
-        seeds = list(range(1))
-        controllers = ['potential_gap']
-        pi_selection = ['3.14159', '1.57079']
+        worlds = ['empty_laser']  #["dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
+        fovs = ['360'] #['90', '120', '180', '240', '300', '360']
+        seeds = list(range(25))
+        controllers = ['dynamic_gap'] # ['dynamic_gap', 'teb']
+        pi_selection = ['3.14159']
         taskid = 0
 
-        # Nonholonomic Potential Gap Experiments
+        # Nonholonomic dynamic Gap Experiments
         # for world in ["office_laser"]:
         for world in worlds:
+            self.world_queue.append(world)
             for robot in ['holonomic']:
                 for controller in controllers:
                     for fov in fovs:
                         for seed in seeds:
                             task = {
-                                    'controller' : controller, 
+                                    'controller' : controller,
                                     'robot' : robot,
                                     'world' : world,
                                     'fov' : fov,
@@ -405,6 +339,7 @@ class STDRMaster(mp.Process):
     stdr_launch_mutex,
     record, **kwargs):
         super(STDRMaster, self).__init__()
+        self.agent_global_path_manager_parent = None
         self.daemon = False
 
         self.task_queue = task_queue
@@ -415,6 +350,8 @@ class STDRMaster(mp.Process):
         self.core = None
         self.stdr_launch = None
         self.controller_launch = None
+        self.spawner_launch = None
+        self.replacer_launch = None
         self.stdr_driver = None
         self.current_world = None
         self.kill_flag = kill_flag
@@ -423,10 +360,23 @@ class STDRMaster(mp.Process):
         self.had_error = False
         self.record = record
 
-        self.tfBuffer = None        
+        self.first = True
 
+        self.tfBuffer = None
 
-        self.gui = False
+        self.gui = True
+        self.world_queue = []
+        self.dynamic_obstacles = True
+        self.agent_launch = []
+        self.obstacle_spawns = []
+        self.obstacle_goals = []
+        self.obstacle_backup_goals = []
+        self.obstacles = []
+        self.agent_bounds = []
+        self.num_obsts = 0
+        self.rosout_msg = ""
+        self.trans = [0.0, 0.0]
+        self.new_goal_list = np.zeros(self.num_obsts)
 
         print "New master"
 
@@ -434,6 +384,8 @@ class STDRMaster(mp.Process):
         self.stdr_master_uri = "http://localhost:" + str(self.stdr_port)
         os.environ["ROS_MASTER_URI"] = self.ros_master_uri
         os.environ["STDR_MASTER_URI"]= self.stdr_master_uri
+
+        # self.rosout_sub = rospy.Subscriber('/rosout_agg', Log, self.rosoutCB, queue_size=5)
 
         #if 'SIMULATION_RESULTS_DIR' in os.environ:
 
@@ -444,6 +396,11 @@ class STDRMaster(mp.Process):
             if 'DISPLAY' not in os.environ:
                 os.environ['DISPLAY']=':0'
 
+    def rosoutCB(self, data):
+        if len(data.msg) > 24:
+            print('data msg: ', data.msg[0:24])
+            self.rosout_msg = data.msg[0:24]
+
     def run(self):
         while not self.is_shutdown and not self.had_error:
             self.process_tasks()
@@ -452,10 +409,13 @@ class STDRMaster(mp.Process):
                 print >> sys.stderr, "(Not) Relaunching on " + str(os.getpid()) + ", ROS_MASTER_URI=" + self.ros_master_uri
         print "Run totally done"
 
+    # called ONCE
     def process_tasks(self):
+        print('PROCESS TASKS')
         # if self.tfBuffer is None:
         #     self.tfBuffer = tf2_ros.Buffer()
         #     self.listener = tf2_ros.TransformListener(self.tfBuffer)
+        # this is starting roscore
         self.roslaunch_core()
         # rospy.set_param('/use_sim_time', 'True')
         rospy.init_node('test_driver', anonymous=True)
@@ -464,20 +424,28 @@ class STDRMaster(mp.Process):
         # scenarios = TestingScenarios()
 
         self.had_error = False
+        path = rospack.get_path("dynamic_gap")
+        uuid = roslaunch.rlutil.get_or_generate_uuid(None, True)
+
 
         while not self.is_shutdown and not self.had_error:
             # TODO: If fail to run task, put task back on task queue
             try:
+                #for world in self.world_queue:
+                #    self.roslaunch_stdr(world)
+
 
                 task = self.task_queue.get(block=False)
-
                 # scenario = scenarios.getScenario(task)
 
                 if True:
 
                     (start, goal) = self.generate_start_goal(task)
-                    self.move_robot(start)
-                    self.roslaunch_stdr(task) #pass in world info
+                    self.move_robot(start)  # relocating robot to start position
+                    self.roslaunch_stdr(task["world"]) #pass in world info, start STDR world with dynamic obstacles, want to only run ONCE
+
+                    # print('task: ', task)
+                    # print('goal: ', goal)
                     time.sleep(5)
 
                     # rospy.sleep(5)
@@ -496,18 +464,41 @@ class STDRMaster(mp.Process):
                         try:
                             controller_args = task["controller_args"] if "controller_args" in task else {}
                             # scenario.setupScenario()
-                            print "Upper level"
-                            print controller_args
+                            print("Upper level")
+                            print(controller_args)
+                            print(task["robot"])
+                            print(task["controller"])
+
+                            fov = "GM_PARAM_RBT_FOV"
+                            seed_fov = str(task['fov'])
+                            os.environ[fov] = seed_fov
                             self.roslaunch_controller(task["robot"], task["controller"], controller_args)
+                            # if first --> actually spawn robot
+                            # if not first --> replace robot with new start
+                            #
                             task.update(controller_args)    #Adding controller arguments to main task dict for easy logging
 
-                            print "Running test..."
+                            print("Running test...")
 
                             #master = rosgraph.Master('/mynode')
                             #TODO: make this a more informative type
                             time.sleep(5)
-                            result = run_test(goal_pose=goal, record=self.record, taskid=task["taskid"])
+                            # running a single test
+                            result = self.run_test(goal_pose=goal, record=self.record, taskid=task["taskid"], num_obsts=self.num_obsts)
+
+                            if self.spawner_launch is not None:
+                                self.spawner_launch.shutdown()
+
+                            if self.replacer_launch is not None:
+                                self.replacer_launch.shutdown()
+
                             self.controller_launch.shutdown()
+
+                            # self.deleter_launch.shutdown()
+                            # possibly delete ego robot?
+                            #for i in range(0, len(self.agent_launch)):
+                            #    self.agent_launch[i].shutdown()
+                            #self.agent_launch = []
 
 
                         except rospy.ROSException as e:
@@ -515,7 +506,18 @@ class STDRMaster(mp.Process):
                             task["error"]= True
                             self.had_error = True
 
+                        if self.spawner_launch is not None:
+                            self.spawner_launch.shutdown()
+
+                        if self.replacer_launch is not None:
+                            self.replacer_launch.shutdown()
+
                         self.controller_launch.shutdown()
+
+                        #for i in range(0, len(self.agent_launch)):
+                        #    self.agent_launch[i].shutdown()
+                        #self.agent_launch = []
+
 
                     else:
                         result = "gazebo_crash"
@@ -533,14 +535,14 @@ class STDRMaster(mp.Process):
                 self.return_result(task)
 
                 if self.had_error:
-                    print >> sys.stderr, result
+                    print(sys.stderr, result)
 
 
             except Queue.Empty, e:
                 with self.soft_kill_flag.get_lock():
                     if self.soft_kill_flag.value:
                         self.shutdown()
-                        print "Soft shutdown requested"
+                        print("Soft shutdown requested")
                 time.sleep(1)
 
 
@@ -548,30 +550,123 @@ class STDRMaster(mp.Process):
                 if self.kill_flag.value:
                     self.shutdown()
 
-        print "Done with processing, killing launch files..."
+        print("Done with processing, killing launch files...")
         # It seems like killing the core should kill all of the nodes,
         # but it doesn't
         if self.stdr_launch is not None:
             self.stdr_launch.shutdown()
 
+        if self.spawner_launch is not None:
+            self.spawner_launch.shutdown()
+
+        if self.replacer_launch is not None:
+            self.replacer_launch.shutdown()
+
         if self.controller_launch is not None:
             self.controller_launch.shutdown()
 
-        print "STDRMaster shutdown: killing core..."
+        for i in range(0, len(self.agent_launch)):
+            if self.agent_launch[i] is not None:
+                self.agent_launch[i].shutdown()
+        self.agent_launch = []
+
+        print("STDRMaster shutdown: killing core...")
         self.core.shutdown()
         #self.core.kill()
         #os.killpg(os.getpgid(self.core.pid), signal.SIGTERM)
-        print "All cleaned up"
+        print("All cleaned up")
 
-    
+        # Send goal to Move base and receive result
+
+    def run_test(self, goal_pose, record=False, taskid=0, num_obsts=0):
+        print('CALLING RUN_TEST')
+        bumper_checker = BumperChecker(num_obsts)
+        odom_accumulator = OdomAccumulator(num_obsts)
+
+        if record:
+            result_recorder = ResultRecorder(taskid)
+
+        client = actionlib.SimpleActionClient('move_base', MoveBaseAction)  # dynamic_gap_egocircle_path_follower
+        print("waiting for server")
+        client.wait_for_server()
+        print("Done!")
+
+        goal = MoveBaseGoal()
+        goal.target_pose = goal_pose
+        goal.target_pose.header.stamp = rospy.Time.now()
+        goal.target_pose.header.frame_id = 'map_static'
+
+        print("sending goal")
+        client.send_goal(goal)
+        print("waiting for result")
+        #if self.dynamic_obstacles:
+        #    self.roslaunch_obst_controller()
+
+        r = rospy.Rate(5)
+        start_time = rospy.Time.now()
+        result = None
+        keep_waiting = True
+        counter = 0
+        result = None
+        while keep_waiting:
+            try:
+                state = client.get_state()
+                if state is not GoalStatus.ACTIVE and state is not GoalStatus.PENDING:
+                    keep_waiting = False
+                elif bumper_checker.collided:
+                    keep_waiting = False
+                    result = "BUMPER_COLLISION"
+                elif rospy.Time.now() - start_time > rospy.Duration(600):
+                    keep_waiting = False
+                    result = "TIMED_OUT"
+                else:
+                    counter += 1
+                    # if blocks, sim time cannot be 0
+                    r.sleep()
+            except:
+                keep_waiting = "False"
+
+        print(result)
+        task_time = str(rospy.Time.now() - start_time)
+        path_length = str(odom_accumulator.getPathLength())
+
+        if record:
+            print("Acquire Record Done")
+            result_recorder.done()
+            print("Acquired")
+
+        if result is None:
+            print("done!")
+            print("getting goal status")
+            print(client.get_goal_status_text())
+            print("done!")
+            print("returning state number")
+            state = client.get_state()
+            if state == GoalStatus.SUCCEEDED:
+                result = "SUCCEEDED"
+            elif state == GoalStatus.ABORTED:
+                result = "ABORTED"
+            elif state == GoalStatus.LOST:
+                result = "LOST"
+            elif state == GoalStatus.REJECTED:
+                result = "REJECTED"
+            elif state == GoalStatus.ACTIVE:
+                result = "TIMED_OUT"
+            else:
+                result = "UNKNOWN"
+        print(result)
+
+        return {'result': result, 'time': task_time, 'path_length': path_length}
+
     def generate_start_goal(self, task):
+        print('CALLING GENERATE START GOAL')
         # try:
         #     trans = self.tfBuffer.lookup_transform("map_static", 'world', rospy.Time())
         # except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
         #     pass
         # print trans
 
-        print task["world"]
+        print(task["world"])
         trans = [0, 0]
 
         if task["world"] == "sector_laser":
@@ -588,16 +683,39 @@ class STDRMaster(mp.Process):
             trans[1] = 9.823917
         elif task["world"] == "campus_laser":
             scenario = CampusScenario(task, "world")
-            trans[0] = 14.990204
-            trans[1] = 13.294787
+            self.trans[0] = 14.990204
+            self.trans[1] = 13.294787
+            self.obstacles = scenario.obstacles
+            self.agent_bounds = [1, 29, 1, 29]
+            #self.obstacle_spawns = scenario.obstacle_spawns
+            #self.obstacle_goals = scenario.obstacle_goals
+            # location [1,1] in map_static (need transform between map_static and known_map
+        elif task["world"] == "empty_laser":
+            scenario = EmptyScenario(task, "world")
+            self.trans[0] = 13.630
+            self.trans[1] = 13.499
+            self.obstacles = scenario.obstacles
+            self.agent_bounds = [5, 23, 5, 23]
+            self.obstacle_spawns = scenario.obstacle_spawns
+            self.obstacle_goals = scenario.obstacle_goals
+            self.obstacle_backup_goals = scenario.obstacle_backup_goals
+        if self.dynamic_obstacles:
+            self.obstacle_goals = [x - self.trans for x in self.obstacle_goals]
+            self.obstacle_backup_goals = [x - self.trans for x in self.obstacle_backup_goals]
+            self.num_obsts = 1 #len(self.obstacle_spawns)
+            #self.new_goal_list = np.zeros(self.num_obsts)
 
         start = scenario.getStartingPose()
         goal = scenario.getGoal()
-        start.position.x += trans[0]
-        start.position.y += trans[1]
-        goal.pose.position.x += trans[0]
-        goal.pose.position.y += trans[1]
-            
+        start.position.x += self.trans[0]
+        start.position.y += self.trans[1]
+        goal.pose.position.x += self.trans[0]
+        goal.pose.position.y += self.trans[1]
+
+        # add start and goal to obstacles list so that agents cannot spawn really close to rbt
+        #self.obstacles.append([start.position.x - 2, start.position.y + 2, start.position.x + 2, start.position.y - 2])
+        #self.obstacles.append([goal.position.x - 2, goal.position.y + 2, goal.position.x + 2, goal.position.y - 2])
+
         return (start, goal)
 
     def start_core(self):
@@ -628,11 +746,11 @@ class STDRMaster(mp.Process):
     def roslaunch_controller(self, robot, controller_name, controller_args={}):
 
         #controller_path =
-        print "RosLaunch controller"
-        print controller_args.items()
+        print("RosLaunch controller")
+        print(controller_args.items())
 
         rospack = rospkg.RosPack()
-        path = rospack.get_path("potential_gap")
+        path = rospack.get_path("dynamic_gap")
 
         # We'll assume Gazebo is launched are ready to go
 
@@ -642,53 +760,217 @@ class STDRMaster(mp.Process):
 
         #Remapping stdout to /dev/null
         # sys.stdout = open(os.devnull, "w")
-
         for key,value in controller_args.items():
             var_name = "GM_PARAM_"+ key.upper()
             value = str(value)
             os.environ[var_name] = value
-            print "Setting environment variable [" + var_name + "] to '" + value + "'"
+            print("Setting environment variable [" + var_name + "] to '" + value + "'")
+        print('controller launch file: ' + path + "/launch/" + controller_name + "_" + robot + "_controller.launch")
+
+
+        if self.first:
+            cli_args = [path + "/launch/spawn_robot.launch",
+                        'robot_namespace:=robot' + str(self.num_obsts),
+                        'rbtx:=' + os.environ["GM_PARAM_RBT_X"],
+                        'rbty:=' + os.environ["GM_PARAM_RBT_Y"],
+                        'fov:=' + os.environ["GM_PARAM_RBT_FOV"]]
+            roslaunch_args = cli_args[1:]
+            roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
+
+            self.spawner_launch = roslaunch.parent.ROSLaunchParent(
+                run_id=uuid, roslaunch_files=roslaunch_file,
+                is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
+            )
+            self.spawner_launch.start()
+            self.first = False
+        else:
+            cli_args = [path + "/launch/replace_robot.launch",
+                        'robot_namespace:=robot' + str(self.num_obsts),
+                        'rbtx:=' + os.environ["GM_PARAM_RBT_X"],
+                        'rbty:=' + os.environ["GM_PARAM_RBT_Y"]]
+            roslaunch_args = cli_args[1:]
+            roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
+
+            self.replacer_launch = roslaunch.parent.ROSLaunchParent(
+                run_id=uuid, roslaunch_files=roslaunch_file,
+                is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
+            )
+            self.replacer_launch.start()
+
+        cli_args = [path + "/launch/" + controller_name + "_" + robot + "_controller.launch",
+                    'robot_namespace:=robot' + str(self.num_obsts),
+                    'robot_radius:=' + str(0.2)]
+
+        roslaunch_args = cli_args[1:]
+        roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
 
         self.controller_launch = roslaunch.parent.ROSLaunchParent(
-            run_id=uuid, roslaunch_files=[path + "/launch/" + controller_name + "_" + robot + "_controller.launch"],
+            run_id=uuid, roslaunch_files=roslaunch_file,
             is_core=False, port=self.ros_port #, roslaunch_strs=controller_args
         )
         self.controller_launch.start()
 
         # sys.stdout = sys.__stdout__
 
-    def roslaunch_stdr(self, task):
+    def roslaunch_stdr(self, world):
+        # print('CALLING ROSLAUNCH_STDR')
         if self.stdr_launch is not None:
-            self.stdr_launch.shutdown()
-        
-        world = task["world"]
-        fov = task["fov"]
-        robot = task["robot"]
+            return
+            #self.stdr_launch.shutdown()
+
+        # world = task["world"]
+        # fov = task["fov"]
+        # robot = task["robot"]
 
         # self.stdr_launch = world
-        self.current_robot = robot
+        # self.current_robot = robot
 
-        map_num = "GM_PARAM_MAP_NUM"
-        seed_num = str(task['seed'])
-        os.environ[map_num] = seed_num
-        print("Setting environment variable [" + map_num + "] to '" + seed_num + "'")
+        # map_num = "GM_PARAM_MAP_NUM"
+        # seed_num = str(task['seed'])
+        # os.environ[map_num] = seed_num
+        # print("Setting environment variable [" + map_num + "] to '" + seed_num + "'")
 
-        fov = "GM_PARAM_RBT_FOV"
-        seed_fov = str(task['fov'])
-        os.environ[fov] = seed_fov
+        #fov = "GM_PARAM_RBT_FOV"
+        #seed_fov = str(task['fov'])
+        #os.environ[fov] = seed_fov
 
         uuid = roslaunch.rlutil.get_or_generate_uuid(None, True)
-        print world
+        # print(world)
         # launch_file_name = "stdr_" + robot + "_" + world + fov + "_world.launch"
-        launch_file_name = "stdr_" + robot + "_" + world + "_world.launch"
-        path = rospack.get_path("potential_gap")
+        launch_file_name = "stdr_" + world + "_world.launch"
+        path = rospack.get_path("dynamic_gap")
+        # print('launch name: ', launch_file_name)
 
         with self.stdr_launch_mutex:
+            print('world launch file: ', [path + "/launch/" + launch_file_name])
             self.stdr_launch = roslaunch.parent.ROSLaunchParent(
                 run_id=uuid, roslaunch_files=[path + "/launch/" + launch_file_name],
                 is_core=False #, roslaunch_strs=controller_args
             )
             self.stdr_launch.start()
+
+        if self.dynamic_obstacles:
+            with self.stdr_launch_mutex:
+                path = rospack.get_path("dynamic_gap")
+                '''
+                roslaunch_file = [path + "/launch/move_base.launch"]
+                self.move_base_launch = roslaunch.parent.ROSLaunchParent(run_id=uuid,
+                                                                                roslaunch_files=roslaunch_file,
+                                                                                is_core=False)
+                self.move_base_launch.start()
+                '''
+                for i in range(0, self.num_obsts):
+                    # spawn_msg = "robot" + str(i) + " moved to new pose"
+                    ## ADDING ROBOT ##
+                    #start = self.obstacle_spawns[i]
+                    #goal = self.obstacle_goals[i]
+                    # start = [1.0, 1.0]
+                    start, goal = self.agent_random_start_and_goal()
+                    #os.system("rosrun stdr_robot robot_handler add " + path + "/stdr_robots/robots/agent.xml" + " " + str(
+                    #        start[0]) + " " + str(start[1]) + " 0")
+                    #os.system("rosrun stdr_robot robot_handler replace " + "robot" + str(i) + " " + str(
+                    #    start[0]) + " " + str(start[1]) + " 0")
+                    #while self.rosout_msg is not spawn_msg:
+                    #    os.system("rosrun stdr_robot robot_handler replace " + "robot" + str(i) + " " + str(
+                    #        start[0]) + " " + str(start[1]) + " 0")
+
+                    # maybe add back check for spawning inside a wall?
+
+                    ## GIVING GOAL ##
+                    cli_args = [path + "/launch/spawn_robot.launch",
+                                'robot_namespace:=robot' + str(self.num_obsts),
+                                'rbtx:=' + str(start[0]),
+                                'rbty:=' + str(start[1]),
+                                'robot_file:=agent.xml']
+                    roslaunch_args = cli_args[1:]
+                    roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
+
+                    agent_spawn_parent = roslaunch.parent.ROSLaunchParent(
+                        run_id=uuid, roslaunch_files=roslaunch_file,
+                        is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
+                    )
+                    self.agent_launch.append(agent_spawn_parent)
+                    self.agent_launch[i].start()
+                    #topic = "robot" + str(i) + "/move_base/status"
+
+                    #rospy.Subscriber(topic, GoalStatusArray, self.obstacle_callback, topic, queue_size=5)
+
+                    #self.send_goal(i, goal)
+                        # give goal as well, what topic do you need to get feedback on if goal is accepted?
+
+                    # spawn at 0,0
+                    # while result = false, replace with random location. How to get result?
+            cli_args = [path + "/launch/agent_global_path_manager.launch",
+                        'robot_namespace:=robot' + str(self.num_obsts)]
+            roslaunch_args = cli_args[1:]
+            roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
+
+            self.agent_global_path_manager_parent = roslaunch.parent.ROSLaunchParent(
+                run_id=uuid, roslaunch_files=roslaunch_file,
+                is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
+            )
+            self.agent_global_path_manager_parent.start()
+
+    def valid_random_pos(self, pos):
+        for obstacle in self.obstacles:
+            if obstacle[0] <= pos[0] <= obstacle[2] and obstacle[3] <= pos[1] <= obstacle[1]:
+                # within obstacle
+                return False
+        return True
+
+    def agent_random_start_and_goal(self):
+        start = [np.random.randint(self.agent_bounds[0], self.agent_bounds[1]),
+                 np.random.randint(self.agent_bounds[2], self.agent_bounds[3])]
+        while not self.valid_random_pos(start):
+            start = [np.random.randint(self.agent_bounds[0], self.agent_bounds[1]),
+                     np.random.randint(self.agent_bounds[2], self.agent_bounds[3])]
+        # print("valid start: ", start)
+        goal = [np.random.randint(self.agent_bounds[0], self.agent_bounds[1]),
+                     np.random.randint(self.agent_bounds[2], self.agent_bounds[3])]
+        while not self.valid_random_pos(goal):
+            goal = [np.random.randint(self.agent_bounds[0], self.agent_bounds[1]),
+                     np.random.randint(self.agent_bounds[2], self.agent_bounds[3])]
+        goal[0] = goal[0] - self.trans[0]
+        goal[1] = goal[1] - self.trans[1]
+        # print("valid goal: ", goal)
+        return start, goal
+
+    def obstacle_callback(self, msg, topic):
+        robot_name = topic.split("/")[0]
+        robot_id = int(robot_name[5:])
+        if len(msg.status_list) > 0:
+            status = msg.status_list[0].status
+            # print('status for robot' + str(robot_id) + ": " + str(status))
+            if status == GoalStatus.SUCCEEDED or status == GoalStatus.ABORTED or status == GoalStatus.LOST or status == GoalStatus.REJECTED:
+                goal = [np.random.randint(self.agent_bounds[0], self.agent_bounds[1]),
+                     np.random.randint(self.agent_bounds[2], self.agent_bounds[3])]
+                while not self.valid_random_pos(goal):
+                    goal = [np.random.randint(self.agent_bounds[0], self.agent_bounds[1]),
+                     np.random.randint(self.agent_bounds[2], self.agent_bounds[3])]
+                goal[0] = goal[0] - self.trans[0]
+                goal[1] = goal[1] - self.trans[1]
+                # print('valid goal: ', goal)
+                self.send_goal(robot_id, goal)
+            # need to change something here to add other goals
+
+    def send_goal(self, i, goal):
+        client = actionlib.SimpleActionClient('/robot' + str(i) + '/move_base', MoveBaseAction)
+        # print("agent: waiting for server")
+        client.wait_for_server()
+        # print("agent: Done!")
+        target_pose = PoseStamped()
+        pose_msg = Pose()
+        pose_msg.position.x = goal[0]
+        pose_msg.position.y = goal[1]
+        q = tf.transformations.quaternion_from_euler(0, 0, 0)
+        pose_msg.orientation = Quaternion(*q)
+        target_pose.pose = pose_msg
+        goal = MoveBaseGoal()
+        goal.target_pose = target_pose
+        goal.target_pose.header.stamp = rospy.Time.now()
+        goal.target_pose.header.frame_id = 'known_map'
+        client.send_goal(goal)
+        # wait for result?
 
     def shutdown(self):
         self.is_shutdown = True
@@ -704,9 +986,9 @@ class STDRMaster(mp.Process):
         self.result_queue.put(result)
         self.task_queue.task_done()
 
-    
+
     def move_robot(self, location):
-        print "Moving robot to"
+        print("Moving robot to")
         # print location
 
         # position
@@ -716,11 +998,11 @@ class STDRMaster(mp.Process):
 
 
 if __name__ == "__main__":
-    master = MultiMasterCoordinator(25, record=False)
+    master = MultiMasterCoordinator(1, record=False)
     start_time = time.time()
     master.start()
     master.addTasks()
-    
+
     #master.singletask()
     master.waitToFinish()
     #rospy.spin()
