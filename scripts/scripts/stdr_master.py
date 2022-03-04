@@ -900,16 +900,11 @@ class STDRMaster(mp.Process):
 
                     # spawn at 0,0
                     # while result = false, replace with random location. How to get result?
-            cli_args = [path + "/launch/agent_global_path_manager.launch",
-                        'robot_namespace:=robot' + str(self.num_obsts)]
-            roslaunch_args = cli_args[1:]
-            roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
-
-            self.agent_global_path_manager_parent = roslaunch.parent.ROSLaunchParent(
-                run_id=uuid, roslaunch_files=roslaunch_file,
-                is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
-            )
-            self.agent_global_path_manager_parent.start()
+            #self.agent_global_path_manager_parent = roslaunch.parent.ROSLaunchParent(
+            #    run_id=uuid, roslaunch_files=[path + "/launch/agent_global_path_manager.launch"],
+            #    is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
+            #)
+            #self.agent_global_path_manager_parent.start()
 
     def valid_random_pos(self, pos):
         for obstacle in self.obstacles:
