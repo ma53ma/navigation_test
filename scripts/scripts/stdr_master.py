@@ -702,7 +702,7 @@ class STDRMaster(mp.Process):
         if self.dynamic_obstacles:
             self.obstacle_goals = [x - self.trans for x in self.obstacle_goals]
             self.obstacle_backup_goals = [x - self.trans for x in self.obstacle_backup_goals]
-            self.num_obsts = 1 #len(self.obstacle_spawns)
+            self.num_obsts = 12 #len(self.obstacle_spawns)
             #self.new_goal_list = np.zeros(self.num_obsts)
 
         start = scenario.getStartingPose()
@@ -810,6 +810,22 @@ class STDRMaster(mp.Process):
         )
         self.controller_launch.start()
 
+        for i in range(0, self.num_obsts):
+            start = self.obstacle_spawns[i]
+
+            cli_args = [path + "/launch/agent_global_path_manager.launch",
+                        'robot_namespace:=robot' + str(i),
+                        'rbt_x:=' + str(start[0]),
+                        'rbt_y:=' + str(start[1])]
+            roslaunch_args = cli_args[1:]
+            roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
+
+            self.agent_global_path_manager_parent = roslaunch.parent.ROSLaunchParent(
+                run_id=uuid, roslaunch_files=roslaunch_file,
+                is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
+            )
+            self.agent_global_path_manager_parent.start()
+
         # sys.stdout = sys.__stdout__
 
     def roslaunch_stdr(self, world):
@@ -862,10 +878,11 @@ class STDRMaster(mp.Process):
                 for i in range(0, self.num_obsts):
                     # spawn_msg = "robot" + str(i) + " moved to new pose"
                     ## ADDING ROBOT ##
-                    #start = self.obstacle_spawns[i]
-                    #goal = self.obstacle_goals[i]
+                    start = self.obstacle_spawns[i]
+                    goal = self.obstacle_goals[i]
                     # start = [1.0, 1.0]
-                    start, goal = self.agent_random_start_and_goal()
+                    #start, goal = self.agent_random_start_and_goal()
+                    #start = [22, 15]
                     #os.system("rosrun stdr_robot robot_handler add " + path + "/stdr_robots/robots/agent.xml" + " " + str(
                     #        start[0]) + " " + str(start[1]) + " 0")
                     #os.system("rosrun stdr_robot robot_handler replace " + "robot" + str(i) + " " + str(
@@ -900,11 +917,6 @@ class STDRMaster(mp.Process):
 
                     # spawn at 0,0
                     # while result = false, replace with random location. How to get result?
-            #self.agent_global_path_manager_parent = roslaunch.parent.ROSLaunchParent(
-            #    run_id=uuid, roslaunch_files=[path + "/launch/agent_global_path_manager.launch"],
-            #    is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
-            #)
-            #self.agent_global_path_manager_parent.start()
 
     def valid_random_pos(self, pos):
         for obstacle in self.obstacles:

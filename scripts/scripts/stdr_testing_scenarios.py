@@ -273,12 +273,12 @@ class EmptyScenario(TestingScenario):
         #self.obstacle_spawns = np.array(
         #    [[14, 15], [14.5, 15], [15, 15], [15.5, 15], [15, 15]])
         self.obstacle_spawns = np.array(
-            [[7, 9], [19, 9]])
+            [[7, 9], [19, 9],[7, 9], [19, 9],[7, 9], [19, 9],[7, 9], [19, 9],[7, 9], [19, 9],[7, 9], [19, 9]])
         #self.obstacle_spawns = np.add(np.random.randint(17, size=(self.num_obsts, 2)), 6)
         #self.obstacle_goals = np.array(
         #    [[13, 5], [14, 5], [15, 5], [16, 5], [17, 5]])
         self.obstacle_goals = np.array(
-            [[19, 9], [7, 9]])
+            [[19, 9], [7, 9],[19, 9], [7, 9],[19, 9], [7, 9],[19, 9], [7, 9],[19, 9], [7, 9],[19, 9], [7, 9]])
         #self.obstacle_goals = np.add(np.random.randint(17, size=(self.num_obsts, 2)), 6)
         #self.obstacle_backup_goals = np.add(np.random.randint(17, size=(self.num_obsts, 2)), 6)
         #self.obstacle_backup_goals = np.array(
