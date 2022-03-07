@@ -297,7 +297,7 @@ class MultiMasterCoordinator:
 
     # This list should be elsewhere, possibly in the configs package
     def addTasks(self):
-        worlds = ['empty_laser']  #["dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
+        worlds = ['campus_laser']  #["dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
         seeds = list(range(25))
         controllers = ['dynamic_gap'] # ['dynamic_gap', 'teb']
@@ -442,10 +442,7 @@ class STDRMaster(mp.Process):
 
                     (start, goal) = self.generate_start_goal(task)
                     self.move_robot(start)  # relocating robot to start position
-                    self.roslaunch_stdr(task["world"]) #pass in world info, start STDR world with dynamic obstacles, want to only run ONCE
-
-                    # print('task: ', task)
-                    # print('goal: ', goal)
+                    self.roslaunch_stdr(task) #pass in world info, start STDR world with dynamic obstacles, want to only run ONCE
                     time.sleep(5)
 
                     # rospy.sleep(5)
@@ -473,9 +470,21 @@ class STDRMaster(mp.Process):
                             seed_fov = str(task['fov'])
                             os.environ[fov] = seed_fov
                             self.roslaunch_controller(task["robot"], task["controller"], controller_args)
-                            # if first --> actually spawn robot
-                            # if not first --> replace robot with new start
-                            #
+
+                            cli_args = [path + "/launch/agent_global_path_manager.launch",
+                                                'num_obsts:=' + str(self.num_obsts),
+                                                'world:=' + str(task["world"])]
+                            roslaunch_args = cli_args[1:]
+                            roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
+
+                            self.agent_global_path_manager_parent = roslaunch.parent.ROSLaunchParent(
+                                run_id=uuid, roslaunch_files=roslaunch_file,
+                                is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
+                            )
+                            self.agent_global_path_manager_parent.start()
+
+
+
                             task.update(controller_args)    #Adding controller arguments to main task dict for easy logging
 
                             print("Running test...")
@@ -702,7 +711,7 @@ class STDRMaster(mp.Process):
         if self.dynamic_obstacles:
             self.obstacle_goals = [x - self.trans for x in self.obstacle_goals]
             self.obstacle_backup_goals = [x - self.trans for x in self.obstacle_backup_goals]
-            self.num_obsts = 12 #len(self.obstacle_spawns)
+            self.num_obsts = 1 #len(self.obstacle_spawns)
             #self.new_goal_list = np.zeros(self.num_obsts)
 
         start = scenario.getStartingPose()
@@ -768,34 +777,19 @@ class STDRMaster(mp.Process):
         print('controller launch file: ' + path + "/launch/" + controller_name + "_" + robot + "_controller.launch")
 
 
-        if self.first:
-            cli_args = [path + "/launch/spawn_robot.launch",
-                        'robot_namespace:=robot' + str(self.num_obsts),
-                        'rbtx:=' + os.environ["GM_PARAM_RBT_X"],
-                        'rbty:=' + os.environ["GM_PARAM_RBT_Y"],
-                        'fov:=' + os.environ["GM_PARAM_RBT_FOV"]]
-            roslaunch_args = cli_args[1:]
-            roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
+        cli_args = [path + "/launch/spawn_robot.launch",
+                    'robot_namespace:=robot' + str(self.num_obsts),
+                    'rbtx:=' + os.environ["GM_PARAM_RBT_X"],
+                    'rbty:=' + os.environ["GM_PARAM_RBT_Y"],
+                    'fov:=' + os.environ["GM_PARAM_RBT_FOV"]]
+        roslaunch_args = cli_args[1:]
+        roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
 
-            self.spawner_launch = roslaunch.parent.ROSLaunchParent(
-                run_id=uuid, roslaunch_files=roslaunch_file,
-                is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
-            )
-            self.spawner_launch.start()
-            self.first = False
-        else:
-            cli_args = [path + "/launch/replace_robot.launch",
-                        'robot_namespace:=robot' + str(self.num_obsts),
-                        'rbtx:=' + os.environ["GM_PARAM_RBT_X"],
-                        'rbty:=' + os.environ["GM_PARAM_RBT_Y"]]
-            roslaunch_args = cli_args[1:]
-            roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
-
-            self.replacer_launch = roslaunch.parent.ROSLaunchParent(
-                run_id=uuid, roslaunch_files=roslaunch_file,
-                is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
-            )
-            self.replacer_launch.start()
+        self.spawner_launch = roslaunch.parent.ROSLaunchParent(
+            run_id=uuid, roslaunch_files=roslaunch_file,
+            is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
+        )
+        self.spawner_launch.start()
 
         cli_args = [path + "/launch/" + controller_name + "_" + robot + "_controller.launch",
                     'robot_namespace:=robot' + str(self.num_obsts),
@@ -809,49 +803,31 @@ class STDRMaster(mp.Process):
             is_core=False, port=self.ros_port #, roslaunch_strs=controller_args
         )
         self.controller_launch.start()
-
-        for i in range(0, self.num_obsts):
-            start = self.obstacle_spawns[i]
-
-            cli_args = [path + "/launch/agent_global_path_manager.launch",
-                        'robot_namespace:=robot' + str(i),
-                        'rbt_x:=' + str(start[0]),
-                        'rbt_y:=' + str(start[1])]
-            roslaunch_args = cli_args[1:]
-            roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
-
-            self.agent_global_path_manager_parent = roslaunch.parent.ROSLaunchParent(
-                run_id=uuid, roslaunch_files=roslaunch_file,
-                is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
-            )
-            self.agent_global_path_manager_parent.start()
-
         # sys.stdout = sys.__stdout__
 
-    def roslaunch_stdr(self, world):
+    def roslaunch_stdr(self, task):
         # print('CALLING ROSLAUNCH_STDR')
         if self.stdr_launch is not None:
-            return
-            #self.stdr_launch.shutdown()
+            self.stdr_launch.shutdown()
 
-        # world = task["world"]
-        # fov = task["fov"]
-        # robot = task["robot"]
+        world = task["world"]
+        fov = task["fov"]
+        robot = task["robot"]
 
         # self.stdr_launch = world
-        # self.current_robot = robot
+        self.current_robot = robot
 
-        # map_num = "GM_PARAM_MAP_NUM"
-        # seed_num = str(task['seed'])
-        # os.environ[map_num] = seed_num
-        # print("Setting environment variable [" + map_num + "] to '" + seed_num + "'")
+        map_num = "GM_PARAM_MAP_NUM"
+        seed_num = str(task['seed'])
+        os.environ[map_num] = seed_num
+        print("Setting environment variable [" + map_num + "] to '" + seed_num + "'")
 
-        #fov = "GM_PARAM_RBT_FOV"
-        #seed_fov = str(task['fov'])
-        #os.environ[fov] = seed_fov
+        fov = "GM_PARAM_RBT_FOV"
+        seed_fov = str(task['fov'])
+        os.environ[fov] = seed_fov
 
         uuid = roslaunch.rlutil.get_or_generate_uuid(None, True)
-        # print(world)
+        print(world)
         # launch_file_name = "stdr_" + robot + "_" + world + fov + "_world.launch"
         launch_file_name = "stdr_" + world + "_world.launch"
         path = rospack.get_path("dynamic_gap")
@@ -868,21 +844,14 @@ class STDRMaster(mp.Process):
         if self.dynamic_obstacles:
             with self.stdr_launch_mutex:
                 path = rospack.get_path("dynamic_gap")
-                '''
-                roslaunch_file = [path + "/launch/move_base.launch"]
-                self.move_base_launch = roslaunch.parent.ROSLaunchParent(run_id=uuid,
-                                                                                roslaunch_files=roslaunch_file,
-                                                                                is_core=False)
-                self.move_base_launch.start()
-                '''
                 for i in range(0, self.num_obsts):
                     # spawn_msg = "robot" + str(i) + " moved to new pose"
                     ## ADDING ROBOT ##
-                    start = self.obstacle_spawns[i]
-                    goal = self.obstacle_goals[i]
+                    #start = self.obstacle_spawns[i]
+                    #goal = self.obstacle_goals[i]
                     # start = [1.0, 1.0]
-                    #start, goal = self.agent_random_start_and_goal()
-                    #start = [22, 15]
+                    # start, goal = self.agent_random_start_and_goal()
+                    start = [1, 1]
                     #os.system("rosrun stdr_robot robot_handler add " + path + "/stdr_robots/robots/agent.xml" + " " + str(
                     #        start[0]) + " " + str(start[1]) + " 0")
                     #os.system("rosrun stdr_robot robot_handler replace " + "robot" + str(i) + " " + str(
@@ -895,7 +864,7 @@ class STDRMaster(mp.Process):
 
                     ## GIVING GOAL ##
                     cli_args = [path + "/launch/spawn_robot.launch",
-                                'robot_namespace:=robot' + str(self.num_obsts),
+                                'robot_namespace:=robot' + str(i),
                                 'rbtx:=' + str(start[0]),
                                 'rbty:=' + str(start[1]),
                                 'robot_file:=agent.xml']
