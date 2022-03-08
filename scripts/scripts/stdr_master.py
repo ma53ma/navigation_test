@@ -300,7 +300,7 @@ class MultiMasterCoordinator:
         worlds = ['campus_laser']  #["dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
         seeds = list(range(25))
-        controllers = ['dynamic_gap'] # ['dynamic_gap', 'teb']
+        controllers = ['teb'] # ['dynamic_gap', 'teb']
         pi_selection = ['3.14159']
         taskid = 0
 
@@ -351,7 +351,6 @@ class STDRMaster(mp.Process):
         self.stdr_launch = None
         self.controller_launch = None
         self.spawner_launch = None
-        self.replacer_launch = None
         self.stdr_driver = None
         self.current_world = None
         self.kill_flag = kill_flag
@@ -371,7 +370,7 @@ class STDRMaster(mp.Process):
         self.obstacle_spawns = []
         self.obstacle_goals = []
         self.obstacle_backup_goals = []
-        self.obstacles = []
+        self.valid_regions = []
         self.agent_bounds = []
         self.num_obsts = 0
         self.rosout_msg = ""
@@ -482,8 +481,7 @@ class STDRMaster(mp.Process):
                                 is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
                             )
                             self.agent_global_path_manager_parent.start()
-
-
+                            rospy.sleep(5.0)
 
                             task.update(controller_args)    #Adding controller arguments to main task dict for easy logging
 
@@ -498,16 +496,13 @@ class STDRMaster(mp.Process):
                             if self.spawner_launch is not None:
                                 self.spawner_launch.shutdown()
 
-                            if self.replacer_launch is not None:
-                                self.replacer_launch.shutdown()
-
                             self.controller_launch.shutdown()
 
                             # self.deleter_launch.shutdown()
                             # possibly delete ego robot?
-                            #for i in range(0, len(self.agent_launch)):
-                            #    self.agent_launch[i].shutdown()
-                            #self.agent_launch = []
+                            for i in range(0, len(self.agent_launch)):
+                                self.agent_launch[i].shutdown()
+                            self.agent_launch = []
 
 
                         except rospy.ROSException as e:
@@ -518,14 +513,11 @@ class STDRMaster(mp.Process):
                         if self.spawner_launch is not None:
                             self.spawner_launch.shutdown()
 
-                        if self.replacer_launch is not None:
-                            self.replacer_launch.shutdown()
-
                         self.controller_launch.shutdown()
 
-                        #for i in range(0, len(self.agent_launch)):
-                        #    self.agent_launch[i].shutdown()
-                        #self.agent_launch = []
+                        for i in range(0, len(self.agent_launch)):
+                            self.agent_launch[i].shutdown()
+                        self.agent_launch = []
 
 
                     else:
@@ -567,9 +559,6 @@ class STDRMaster(mp.Process):
 
         if self.spawner_launch is not None:
             self.spawner_launch.shutdown()
-
-        if self.replacer_launch is not None:
-            self.replacer_launch.shutdown()
 
         if self.controller_launch is not None:
             self.controller_launch.shutdown()
@@ -694,7 +683,7 @@ class STDRMaster(mp.Process):
             scenario = CampusScenario(task, "world")
             self.trans[0] = 14.990204
             self.trans[1] = 13.294787
-            self.obstacles = scenario.obstacles
+            self.valid_regions = scenario.valid_regions
             self.agent_bounds = [1, 29, 1, 29]
             #self.obstacle_spawns = scenario.obstacle_spawns
             #self.obstacle_goals = scenario.obstacle_goals
@@ -711,7 +700,7 @@ class STDRMaster(mp.Process):
         if self.dynamic_obstacles:
             self.obstacle_goals = [x - self.trans for x in self.obstacle_goals]
             self.obstacle_backup_goals = [x - self.trans for x in self.obstacle_backup_goals]
-            self.num_obsts = 1 #len(self.obstacle_spawns)
+            self.num_obsts = 25 #len(self.obstacle_spawns)
             #self.new_goal_list = np.zeros(self.num_obsts)
 
         start = scenario.getStartingPose()
@@ -844,14 +833,15 @@ class STDRMaster(mp.Process):
         if self.dynamic_obstacles:
             with self.stdr_launch_mutex:
                 path = rospack.get_path("dynamic_gap")
+                print('num obsts: ', self.num_obsts)
                 for i in range(0, self.num_obsts):
+                    print('spawning robot' + str(i))
                     # spawn_msg = "robot" + str(i) + " moved to new pose"
                     ## ADDING ROBOT ##
                     #start = self.obstacle_spawns[i]
                     #goal = self.obstacle_goals[i]
                     # start = [1.0, 1.0]
-                    # start, goal = self.agent_random_start_and_goal()
-                    start = [1, 1]
+                    start = self.agent_random_start_and_goal()
                     #os.system("rosrun stdr_robot robot_handler add " + path + "/stdr_robots/robots/agent.xml" + " " + str(
                     #        start[0]) + " " + str(start[1]) + " 0")
                     #os.system("rosrun stdr_robot robot_handler replace " + "robot" + str(i) + " " + str(
@@ -877,6 +867,7 @@ class STDRMaster(mp.Process):
                     )
                     self.agent_launch.append(agent_spawn_parent)
                     self.agent_launch[i].start()
+                    rospy.sleep(0.25)
                     #topic = "robot" + str(i) + "/move_base/status"
 
                     #rospy.Subscriber(topic, GoalStatusArray, self.obstacle_callback, topic, queue_size=5)
@@ -895,8 +886,11 @@ class STDRMaster(mp.Process):
         return True
 
     def agent_random_start_and_goal(self):
-        start = [np.random.randint(self.agent_bounds[0], self.agent_bounds[1]),
-                 np.random.randint(self.agent_bounds[2], self.agent_bounds[3])]
+
+        rand_region = self.valid_regions[np.random.randint(0, len(self.valid_regions))]
+        start = [np.random.randint(rand_region[0], rand_region[2]),
+                 np.random.randint(rand_region[3], rand_region[1])]
+        '''
         while not self.valid_random_pos(start):
             start = [np.random.randint(self.agent_bounds[0], self.agent_bounds[1]),
                      np.random.randint(self.agent_bounds[2], self.agent_bounds[3])]
@@ -908,9 +902,11 @@ class STDRMaster(mp.Process):
                      np.random.randint(self.agent_bounds[2], self.agent_bounds[3])]
         goal[0] = goal[0] - self.trans[0]
         goal[1] = goal[1] - self.trans[1]
+        '''
         # print("valid goal: ", goal)
-        return start, goal
+        return start
 
+    '''
     def obstacle_callback(self, msg, topic):
         robot_name = topic.split("/")[0]
         robot_id = int(robot_name[5:])
@@ -947,7 +943,7 @@ class STDRMaster(mp.Process):
         goal.target_pose.header.frame_id = 'known_map'
         client.send_goal(goal)
         # wait for result?
-
+    '''
     def shutdown(self):
         self.is_shutdown = True
 
