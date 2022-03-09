@@ -300,7 +300,7 @@ class MultiMasterCoordinator:
         worlds = ['campus_laser']  #["dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
         seeds = list(range(25))
-        controllers = ['dynamic_gap'] # ['dynamic_gap', 'teb']
+        controllers = ['teb'] # ['dynamic_gap', 'teb']
         pi_selection = ['3.14159']
         taskid = 0
 
@@ -504,20 +504,24 @@ class STDRMaster(mp.Process):
                                 self.agent_launch[i].shutdown()
                             self.agent_launch = []
 
+                            self.agent_global_path_manager_parent.shutdown()
+
 
                         except rospy.ROSException as e:
                             result = "ROSException: " + str(e)
                             task["error"]= True
                             self.had_error = True
 
-                        if self.spawner_launch is not None:
-                            self.spawner_launch.shutdown()
+                        #if self.spawner_launch is not None:
+                        self.spawner_launch.shutdown()
 
                         self.controller_launch.shutdown()
 
                         for i in range(0, len(self.agent_launch)):
                             self.agent_launch[i].shutdown()
                         self.agent_launch = []
+
+                        self.agent_global_path_manager_parent.shutdown()
 
 
                     else:
@@ -567,6 +571,9 @@ class STDRMaster(mp.Process):
             if self.agent_launch[i] is not None:
                 self.agent_launch[i].shutdown()
         self.agent_launch = []
+
+        if self.agent_global_path_manager_parent is not None:
+            self.agent_global_path_manager_parent.shutdown()
 
         print("STDRMaster shutdown: killing core...")
         self.core.shutdown()
@@ -867,7 +874,7 @@ class STDRMaster(mp.Process):
                     )
                     self.agent_launch.append(agent_spawn_parent)
                     self.agent_launch[i].start()
-                    rospy.sleep(0.25)
+                    rospy.sleep(0.01)
                     #topic = "robot" + str(i) + "/move_base/status"
 
                     #rospy.Subscriber(topic, GoalStatusArray, self.obstacle_callback, topic, queue_size=5)
