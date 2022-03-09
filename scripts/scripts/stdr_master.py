@@ -300,7 +300,7 @@ class MultiMasterCoordinator:
         worlds = ['campus_laser']  #["dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
         seeds = list(range(25))
-        controllers = ['teb'] # ['dynamic_gap', 'teb']
+        controllers = ['dynamic_gap'] # ['dynamic_gap', 'teb']
         pi_selection = ['3.14159']
         taskid = 0
 
