@@ -365,7 +365,7 @@ class STDRMaster(mp.Process):
 
         self.gui = True
         self.world_queue = []
-        self.dynamic_obstacles = True
+        self.dynamic_obstacles = False
         self.agent_launch = []
         self.obstacle_spawns = []
         self.obstacle_goals = []
@@ -442,7 +442,7 @@ class STDRMaster(mp.Process):
                     (start, goal) = self.generate_start_goal(task)
                     self.move_robot(start)  # relocating robot to start position
                     self.roslaunch_stdr(task) #pass in world info, start STDR world with dynamic obstacles, want to only run ONCE
-                    time.sleep(5)
+                    # time.sleep(5)
 
                     # rospy.sleep(5)
                     # try:
