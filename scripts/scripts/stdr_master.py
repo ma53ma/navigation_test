@@ -351,6 +351,7 @@ class STDRMaster(mp.Process):
         self.stdr_launch = None
         self.controller_launch = None
         self.spawner_launch = None
+        self.teleop_launch = None
         self.stdr_driver = None
         self.current_world = None
         self.kill_flag = kill_flag
@@ -365,7 +366,7 @@ class STDRMaster(mp.Process):
 
         self.gui = True
         self.world_queue = []
-        self.dynamic_obstacles = False
+        self.dynamic_obstacles = True
         self.agent_launch = []
         self.obstacle_spawns = []
         self.obstacle_goals = []
@@ -456,7 +457,6 @@ class STDRMaster(mp.Process):
                         result = "nothing"
                     elif not self.stdr_launch._shutting_down:
                         # controller_args = task["controller_args"] if "controller_args" in task else {}
-
                         try:
                             controller_args = task["controller_args"] if "controller_args" in task else {}
                             # scenario.setupScenario()
@@ -468,8 +468,9 @@ class STDRMaster(mp.Process):
                             fov = "GM_PARAM_RBT_FOV"
                             seed_fov = str(task['fov'])
                             os.environ[fov] = seed_fov
-                            self.roslaunch_controller(task["robot"], task["controller"], controller_args)
+                            # self.roslaunch_controller(task["robot"], task["controller"], controller_args)
 
+                            self.roslaunch_teleop()
                             cli_args = [path + "/launch/agent_global_path_manager.launch",
                                                 'num_obsts:=' + str(self.num_obsts),
                                                 'world:=' + str(task["world"])]
@@ -496,7 +497,11 @@ class STDRMaster(mp.Process):
                             if self.spawner_launch is not None:
                                 self.spawner_launch.shutdown()
 
-                            self.controller_launch.shutdown()
+                            if self.controller_launch is not None:
+                                self.controller_launch.shutdown()
+
+                            if self.teleop_launch is not None:
+                                self.teleop_launch.shutdown()
 
                             # self.deleter_launch.shutdown()
                             # possibly delete ego robot?
@@ -515,7 +520,11 @@ class STDRMaster(mp.Process):
                         #if self.spawner_launch is not None:
                         self.spawner_launch.shutdown()
 
-                        self.controller_launch.shutdown()
+                        if self.controller_launch is not None:
+                            self.controller_launch.shutdown()
+
+                        if self.teleop_launch is not None:
+                            self.teleop_launch.shutdown()
 
                         for i in range(0, len(self.agent_launch)):
                             self.agent_launch[i].shutdown()
@@ -566,6 +575,9 @@ class STDRMaster(mp.Process):
 
         if self.controller_launch is not None:
             self.controller_launch.shutdown()
+
+        if self.teleop_launch is not None:
+            self.teleop_launch.shutdown()
 
         for i in range(0, len(self.agent_launch)):
             if self.agent_launch[i] is not None:
@@ -772,7 +784,6 @@ class STDRMaster(mp.Process):
             print("Setting environment variable [" + var_name + "] to '" + value + "'")
         print('controller launch file: ' + path + "/launch/" + controller_name + "_" + robot + "_controller.launch")
 
-
         cli_args = [path + "/launch/spawn_robot.launch",
                     'robot_namespace:=robot' + str(self.num_obsts),
                     'rbtx:=' + os.environ["GM_PARAM_RBT_X"],
@@ -800,6 +811,43 @@ class STDRMaster(mp.Process):
         )
         self.controller_launch.start()
         # sys.stdout = sys.__stdout__
+
+    def roslaunch_teleop(self):
+        rospack = rospkg.RosPack()
+        path = rospack.get_path("dynamic_gap")
+
+        # We'll assume Gazebo is launched are ready to go
+
+        uuid = roslaunch.rlutil.get_or_generate_uuid(None, True)
+        #roslaunch.configure_logging(uuid)
+        #print path
+        cli_args = [path + "/launch/spawn_robot.launch",
+                    'robot_namespace:=robot' + str(self.num_obsts),
+                    'rbtx:=' + os.environ["GM_PARAM_RBT_X"],
+                    'rbty:=' + os.environ["GM_PARAM_RBT_Y"],
+                    'fov:=' + os.environ["GM_PARAM_RBT_FOV"]]
+        roslaunch_args = cli_args[1:]
+        roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
+
+        self.spawner_launch = roslaunch.parent.ROSLaunchParent(
+            run_id=uuid, roslaunch_files=roslaunch_file,
+            is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
+        )
+        self.spawner_launch.start()
+
+        path = rospack.get_path("gap_tracker")
+
+        cli_args = [path + "/launch/gap_tracker.launch",
+                    'robot_namespace:=robot' + str(self.num_obsts),
+                    'robot_radius:=' + str(0.2)]
+        roslaunch_args = cli_args[1:]
+        roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
+
+        self.teleop_launch = roslaunch.parent.ROSLaunchParent(
+            run_id=uuid, roslaunch_files=roslaunch_file,
+            is_core=False, port=self.ros_port #, roslaunch_strs=controller_args
+        )
+        self.teleop_launch.start()
 
     def roslaunch_stdr(self, task):
         # print('CALLING ROSLAUNCH_STDR')
@@ -838,8 +886,7 @@ class STDRMaster(mp.Process):
             self.stdr_launch.start()
 
         if self.dynamic_obstacles:
-
-
+            self.spawn_obstacles()
 
     def spawn_obstacles(self):
         with self.stdr_launch_mutex:
