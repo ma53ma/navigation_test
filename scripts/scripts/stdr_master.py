@@ -156,10 +156,10 @@ class ResultRecorder:
 def port_in_use(port):
     with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
         if sock.connect_ex(('127.0.0.1', port)) == 0:
-            print "Port " + str(port) + " is in use"
+            print("Port " + str(port) + " is in use")
             return True
         else:
-            print "Port " + str(port) + " is not in use"
+            print("Port " + str(port) + " is not in use")
             return False
 
 
@@ -254,7 +254,7 @@ class MultiMasterCoordinator:
                             result_string+= str(k) + ":" + str(v) + ","
                     result_string += "]"
 
-                    print result_string
+                    print(result_string)
 
                     if "error" not in task:
                         self.result_list.append(result_string)
@@ -285,15 +285,15 @@ class MultiMasterCoordinator:
         self.should_shutdown = True
 
     def waitToFinish(self):
-        print "Waiting until everything done!"
+        print("Waiting until everything done!")
         self.task_queue.join()
-        print "All tasks processed!"
+        print("All tasks processed!")
         with self.soft_shutdown.get_lock():
             self.soft_shutdown.value = True
 
         #The problem is that this won't happen if I end prematurely...
         self.result_queue.join()
-        print "All results processed!"
+        print("All results processed!")
 
     # This list should be elsewhere, possibly in the configs package
     def addTasks(self):
@@ -377,7 +377,7 @@ class STDRMaster(mp.Process):
         self.trans = [0.0, 0.0]
         self.new_goal_list = np.zeros(self.num_obsts)
 
-        print "New master"
+        print("New master")
 
         self.ros_master_uri = "http://localhost:" + str(self.ros_port)
         self.stdr_master_uri = "http://localhost:" + str(self.stdr_port)
@@ -405,8 +405,8 @@ class STDRMaster(mp.Process):
             self.process_tasks()
             time.sleep(5)
             if not self.is_shutdown:
-                print >> sys.stderr, "(Not) Relaunching on " + str(os.getpid()) + ", ROS_MASTER_URI=" + self.ros_master_uri
-        print "Run totally done"
+                print(sys.stderr, "(Not) Relaunching on " + str(os.getpid()) + ", ROS_MASTER_URI=" + self.ros_master_uri)
+        print("Run totally done")
 
     # called ONCE
     def process_tasks(self):
@@ -733,9 +733,9 @@ class STDRMaster(mp.Process):
         #my_env["ROS_MASTER_URI"] = self.ros_master_uri
         #my_env["GAZEBO_MASTER_URI"] = self.gazebo_master_uri
 
-        print "Starting core..."
+        print("Starting core...")
         self.core = subprocess.Popen(my_command.split()) # preexec_fn=os.setsid
-        print "Core started! [" + str(self.core.pid) + "]"
+        print("Core started! [" + str(self.core.pid) + "]")
 
     def roslaunch_core(self):
 
@@ -838,52 +838,49 @@ class STDRMaster(mp.Process):
             self.stdr_launch.start()
 
         if self.dynamic_obstacles:
-            with self.stdr_launch_mutex:
-                path = rospack.get_path("dynamic_gap")
-                print('num obsts: ', self.num_obsts)
-                for i in range(0, self.num_obsts):
-                    print('spawning robot' + str(i))
-                    # spawn_msg = "robot" + str(i) + " moved to new pose"
-                    ## ADDING ROBOT ##
-                    #start = self.obstacle_spawns[i]
-                    #goal = self.obstacle_goals[i]
-                    # start = [1.0, 1.0]
-                    start = self.agent_random_start_and_goal()
-                    #os.system("rosrun stdr_robot robot_handler add " + path + "/stdr_robots/robots/agent.xml" + " " + str(
-                    #        start[0]) + " " + str(start[1]) + " 0")
-                    #os.system("rosrun stdr_robot robot_handler replace " + "robot" + str(i) + " " + str(
-                    #    start[0]) + " " + str(start[1]) + " 0")
-                    #while self.rosout_msg is not spawn_msg:
-                    #    os.system("rosrun stdr_robot robot_handler replace " + "robot" + str(i) + " " + str(
-                    #        start[0]) + " " + str(start[1]) + " 0")
 
-                    # maybe add back check for spawning inside a wall?
 
-                    ## GIVING GOAL ##
-                    cli_args = [path + "/launch/spawn_robot.launch",
-                                'robot_namespace:=robot' + str(i),
-                                'rbtx:=' + str(start[0]),
-                                'rbty:=' + str(start[1]),
-                                'robot_file:=agent.xml']
-                    roslaunch_args = cli_args[1:]
-                    roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
 
-                    agent_spawn_parent = roslaunch.parent.ROSLaunchParent(
-                        run_id=uuid, roslaunch_files=roslaunch_file,
-                        is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
-                    )
-                    self.agent_launch.append(agent_spawn_parent)
-                    self.agent_launch[i].start()
-                    rospy.sleep(0.01)
-                    #topic = "robot" + str(i) + "/move_base/status"
+    def spawn_obstacles(self):
+        with self.stdr_launch_mutex:
+            path = rospack.get_path("dynamic_gap")
+            uuid = roslaunch.rlutil.get_or_generate_uuid(None, True)
 
-                    #rospy.Subscriber(topic, GoalStatusArray, self.obstacle_callback, topic, queue_size=5)
+            print('num obsts: ', self.num_obsts)
+            for i in range(0, self.num_obsts):
+                print('spawning robot' + str(i))
+                # spawn_msg = "robot" + str(i) + " moved to new pose"
+                ## ADDING ROBOT ##
+                #start = self.obstacle_spawns[i]
+                #goal = self.obstacle_goals[i]
+                # start = [1.0, 1.0]
+                start = self.agent_random_start_and_goal()
+                #os.system("rosrun stdr_robot robot_handler add " + path + "/stdr_robots/robots/agent.xml" + " " + str(
+                #        start[0]) + " " + str(start[1]) + " 0")
+                #os.system("rosrun stdr_robot robot_handler replace " + "robot" + str(i) + " " + str(
+                #    start[0]) + " " + str(start[1]) + " 0")
+                #while self.rosout_msg is not spawn_msg:
+                #    os.system("rosrun stdr_robot robot_handler replace " + "robot" + str(i) + " " + str(
+                #        start[0]) + " " + str(start[1]) + " 0")
 
-                    #self.send_goal(i, goal)
-                        # give goal as well, what topic do you need to get feedback on if goal is accepted?
+                # maybe add back check for spawning inside a wall?
 
-                    # spawn at 0,0
-                    # while result = false, replace with random location. How to get result?
+                ## GIVING GOAL ##
+                cli_args = [path + "/launch/spawn_robot.launch",
+                            'robot_namespace:=robot' + str(i),
+                            'rbtx:=' + str(start[0]),
+                            'rbty:=' + str(start[1]),
+                            'robot_file:=agent.xml']
+                roslaunch_args = cli_args[1:]
+                roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
+
+                agent_spawn_parent = roslaunch.parent.ROSLaunchParent(
+                    run_id=uuid, roslaunch_files=roslaunch_file,
+                    is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
+                )
+                self.agent_launch.append(agent_spawn_parent)
+                self.agent_launch[i].start()
+                rospy.sleep(0.01)
 
     def valid_random_pos(self, pos):
         for obstacle in self.obstacles:
@@ -961,7 +958,7 @@ class STDRMaster(mp.Process):
         self.shutdown()
 
     def return_result(self,result):
-        print "Returning completed task: " + str(result)
+        print("Returning completed task: " + str(result))
         self.result_queue.put(result)
         self.task_queue.task_done()
 
@@ -987,4 +984,4 @@ if __name__ == "__main__":
     #rospy.spin()
     master.shutdown()
     end_time = time.time()
-    print "Total time: " + str(end_time - start_time)
+    print("Total time: " + str(end_time - start_time))
