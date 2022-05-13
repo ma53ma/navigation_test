@@ -366,7 +366,7 @@ class STDRMaster(mp.Process):
 
         self.gui = True
         self.world_queue = []
-        self.dynamic_obstacles = False
+        self.dynamic_obstacles = True
         self.agent_launch = []
         self.obstacle_spawns = []
         self.obstacle_goals = []
@@ -483,7 +483,7 @@ class STDRMaster(mp.Process):
                             task.update(controller_args)    #Adding controller arguments to main task dict for easy logging
 
                             print("Running test...")
-
+                            # add some sort of wait function until all agents get plans?
                             #master = rosgraph.Master('/mynode')
                             #TODO: make this a more informative type
                             time.sleep(5)
@@ -700,6 +700,8 @@ class STDRMaster(mp.Process):
             self.trans[1] = 13.294787
             self.valid_regions = scenario.valid_regions
             self.agent_bounds = [1, 29, 1, 29]
+            print('original start: ', scenario.getStartingPose())
+            print('original goal: ', scenario.getGoal())
             #self.obstacle_spawns = scenario.obstacle_spawns
             #self.obstacle_goals = scenario.obstacle_goals
             # location [1,1] in map_static (need transform between map_static and known_map
@@ -736,6 +738,8 @@ class STDRMaster(mp.Process):
         goal.pose.position.x += self.trans[0]
         goal.pose.position.y += self.trans[1]
 
+        print('final start: ', start)
+        print('final goal: ', goal)
         # add start and goal to obstacles list so that agents cannot spawn really close to rbt
         #self.obstacles.append([start.position.x - 2, start.position.y + 2, start.position.x + 2, start.position.y - 2])
         #self.obstacles.append([goal.position.x - 2, goal.position.y + 2, goal.position.x + 2, goal.position.y - 2])
