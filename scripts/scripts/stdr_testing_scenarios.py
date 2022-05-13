@@ -267,6 +267,66 @@ class StereoCampusObstacleScenario(CampusObstacleScenario):
 
         self.world = "stereo_campus_obstacle"
 
+
+
+class HallwayScenario(TestingScenario):
+    def __init__(self, task, goal_frame):
+        self.goal_frame = goal_frame
+        self.world = "empty"
+        self.seed = task["seed"] if "seed" in task else 0
+        self.poses = [[-9, -9, 0]] # [0,-9,1.57]
+        self.init_id = task["init_id"] if "init_id" in task else 0
+        self.target_id = task["target_id"] if "target_id" in task else (self.init_id + len(self.poses)/2) % len(self.poses)
+        self.random = random.Random()
+        self.random.seed(self.seed)
+
+        self.valid_regions = []  # [[6, 22, 22, 6]]
+
+        self.obstacle_spawns = np.array([])
+
+        self.obstacle_goals = np.array([])
+
+        self.obstacle_backup_goals = np.array([])
+        self.obstacles = []
+
+    @staticmethod
+    def getUniqueFieldNames():
+        return ["num_obstacles", "seed", "target_id", "init_id"]
+
+    def getPoseMsg(self, pose):
+        pose_msg = Pose()
+        pose_msg.position.x = pose[0]
+        pose_msg.position.y = pose[1]
+
+        q = tf.transformations.quaternion_from_euler(0, 0, pose[2])
+        # msg = Quaternion(*q)
+
+        pose_msg.orientation = Quaternion(*q)
+
+        return pose_msg
+
+
+    # if i do random starts and goals, they can spawn pretty close to each other
+    def getStartingPose(self):
+        # ranges from -9 to 9 --> let's only spawn -9 to -7
+        x = self.random.random()*(18) - 9
+        y = -9 #self.random.random()*(18) - 9
+        pose = [-12, -4, -1.57] #[x, y, 0]
+        init_pose = self.getPoseMsg(pose=pose)
+
+        return init_pose
+
+    def getGoal(self):
+        x = self.random.random()*(18) - 9
+        y = self.random.random()*(18) - 9
+
+        pose = [12, -4, 3.14] # [0, y, 3.14]
+        init_pose = self.getPoseMsg(pose=pose)
+        pose_stamped = PoseStamped()
+        pose_stamped.pose = init_pose
+        pose_stamped.header.frame_id=self.goal_frame
+        return pose_stamped
+
 class EmptyScenario(TestingScenario):
     def __init__(self, task, goal_frame):
         self.goal_frame = goal_frame

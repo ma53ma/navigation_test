@@ -36,7 +36,7 @@ import rospy
 import csv
 import datetime
 import tf2_ros
-from stdr_testing_scenarios import SectorScenario, CampusScenario, FourthFloorScenario, SparseScenario, EmptyScenario
+from stdr_testing_scenarios import SectorScenario, CampusScenario, FourthFloorScenario, SparseScenario, EmptyScenario, HallwayScenario
 import rosbag
 from tf2_msgs.msg import TFMessage
 from sensor_msgs.msg import LaserScan
@@ -161,6 +161,7 @@ def port_in_use(port):
         else:
             print("Port " + str(port) + " is not in use")
             return False
+
 
 
 class MultiMasterCoordinator:
@@ -297,10 +298,10 @@ class MultiMasterCoordinator:
 
     # This list should be elsewhere, possibly in the configs package
     def addTasks(self):
-        worlds = ['campus_laser']  #["dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
+        worlds = ['campus_laser']  #["hallway_laser","dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
         seeds = list(range(25))
-        controllers = ['dynamic_gap'] # ['dynamic_gap', 'teb']
+        controllers = ['dynamic_gap'] # ['teb']
         pi_selection = ['3.14159']
         taskid = 0
 
@@ -326,7 +327,6 @@ class MultiMasterCoordinator:
                                     }
                             taskid += 1
                             self.task_queue.put(task)
-
 
 class STDRMaster(mp.Process):
     def __init__(self,
@@ -366,10 +366,12 @@ class STDRMaster(mp.Process):
 
         self.gui = True
         self.world_queue = []
-        self.dynamic_obstacles = True
+        self.dynamic_obstacles = False
         self.agent_launch = []
         self.obstacle_spawns = []
         self.obstacle_goals = []
+        self.obstacle_start_xs = []
+        self.obstacle_start_ys = []
         self.obstacle_backup_goals = []
         self.valid_regions = []
         self.agent_bounds = []
@@ -443,15 +445,6 @@ class STDRMaster(mp.Process):
                     (start, goal) = self.generate_start_goal(task)
                     self.move_robot(start)  # relocating robot to start position
                     self.roslaunch_stdr(task) #pass in world info, start STDR world with dynamic obstacles, want to only run ONCE
-                    # time.sleep(5)
-
-                    # rospy.sleep(5)
-                    # try:
-                    # except:
-                    #     print "move robot failed"
-                    #     self.roslaunch_stdr(task) #pass in world info
-                    #     self.move_robot(start)
-
 
                     if task["controller"] is None:
                         result = "nothing"
@@ -468,21 +461,24 @@ class STDRMaster(mp.Process):
                             fov = "GM_PARAM_RBT_FOV"
                             seed_fov = str(task['fov'])
                             os.environ[fov] = seed_fov
-                            # self.roslaunch_controller(task["robot"], task["controller"], controller_args)
+                            self.roslaunch_controller(task["robot"], task["controller"], controller_args)
 
-                            self.roslaunch_teleop()
-                            cli_args = [path + "/launch/agent_global_path_manager.launch",
-                                                'num_obsts:=' + str(self.num_obsts),
-                                                'world:=' + str(task["world"])]
-                            roslaunch_args = cli_args[1:]
-                            roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
+                            # self.roslaunch_teleop()
+                            if self.dynamic_obstacles:
+                                cli_args = [path + "/launch/agent_global_path_manager.launch",
+                                                    'num_obsts:=' + str(self.num_obsts),
+                                                    'world:=' + str(task["world"]),
+                                                    'start_xs:=' + str(self.obstacle_start_xs),
+                                                    'start_ys:=' + str(self.obstacle_start_ys)]
+                                roslaunch_args = cli_args[1:]
+                                roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
 
-                            self.agent_global_path_manager_parent = roslaunch.parent.ROSLaunchParent(
-                                run_id=uuid, roslaunch_files=roslaunch_file,
-                                is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
-                            )
-                            self.agent_global_path_manager_parent.start()
-                            rospy.sleep(5.0)
+                                self.agent_global_path_manager_parent = roslaunch.parent.ROSLaunchParent(
+                                    run_id=uuid, roslaunch_files=roslaunch_file,
+                                    is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
+                                )
+                                self.agent_global_path_manager_parent.start()
+                                rospy.sleep(5.0)
 
                             task.update(controller_args)    #Adding controller arguments to main task dict for easy logging
 
@@ -603,7 +599,7 @@ class STDRMaster(mp.Process):
         if record:
             result_recorder = ResultRecorder(taskid)
 
-        client = actionlib.SimpleActionClient('move_base', MoveBaseAction)  # dynamic_gap_egocircle_path_follower
+        client = actionlib.SimpleActionClient('move_base', MoveBaseAction)  #
         print("waiting for server")
         client.wait_for_server()
         print("Done!")
@@ -716,10 +712,21 @@ class STDRMaster(mp.Process):
             self.obstacle_spawns = scenario.obstacle_spawns
             self.obstacle_goals = scenario.obstacle_goals
             self.obstacle_backup_goals = scenario.obstacle_backup_goals
+        elif task["world"] == "hallway_laser":
+            scenario = HallwayScenario(task, "world")
+            self.trans[0] = 18.666
+            self.trans[1] = 16.971
+            self.obstacles = scenario.obstacles
+            self.agent_bounds = [5, 23, 5, 23]
+            self.obstacle_spawns = scenario.obstacle_spawns
+            self.obstacle_goals = scenario.obstacle_goals
+            self.obstacle_backup_goals = scenario.obstacle_backup_goals
+            self.valid_regions = scenario.valid_regions
+
         if self.dynamic_obstacles:
             self.obstacle_goals = [x - self.trans for x in self.obstacle_goals]
             self.obstacle_backup_goals = [x - self.trans for x in self.obstacle_backup_goals]
-            self.num_obsts = 5 #len(self.obstacle_spawns)
+            self.num_obsts = 1 #len(self.obstacle_spawns)
             #self.new_goal_list = np.zeros(self.num_obsts)
 
         start = scenario.getStartingPose()
@@ -858,9 +865,6 @@ class STDRMaster(mp.Process):
         fov = task["fov"]
         robot = task["robot"]
 
-        # self.stdr_launch = world
-        self.current_robot = robot
-
         map_num = "GM_PARAM_MAP_NUM"
         seed_num = str(task['seed'])
         os.environ[map_num] = seed_num
@@ -893,25 +897,14 @@ class STDRMaster(mp.Process):
             path = rospack.get_path("dynamic_gap")
             uuid = roslaunch.rlutil.get_or_generate_uuid(None, True)
 
-            print('num obsts: ', self.num_obsts)
+            # print('num obsts: ', self.num_obsts)
             for i in range(0, self.num_obsts):
-                print('spawning robot' + str(i))
-                # spawn_msg = "robot" + str(i) + " moved to new pose"
-                ## ADDING ROBOT ##
-                #start = self.obstacle_spawns[i]
-                #goal = self.obstacle_goals[i]
-                # start = [1.0, 1.0]
+                #print('spawning robot' + str(i))
+
                 start = self.agent_random_start_and_goal()
-                #os.system("rosrun stdr_robot robot_handler add " + path + "/stdr_robots/robots/agent.xml" + " " + str(
-                #        start[0]) + " " + str(start[1]) + " 0")
-                #os.system("rosrun stdr_robot robot_handler replace " + "robot" + str(i) + " " + str(
-                #    start[0]) + " " + str(start[1]) + " 0")
-                #while self.rosout_msg is not spawn_msg:
-                #    os.system("rosrun stdr_robot robot_handler replace " + "robot" + str(i) + " " + str(
-                #        start[0]) + " " + str(start[1]) + " 0")
-
-                # maybe add back check for spawning inside a wall?
-
+                #print('generated start: ', start)
+                self.obstacle_start_xs.append(start[0])
+                self.obstacle_start_ys.append(start[1])
                 ## GIVING GOAL ##
                 cli_args = [path + "/launch/spawn_robot.launch",
                             'robot_namespace:=robot' + str(i),
