@@ -366,7 +366,7 @@ class STDRMaster(mp.Process):
 
         self.gui = True
         self.world_queue = []
-        self.dynamic_obstacles = True
+        self.dynamic_obstacles = False
         self.agent_launch = []
         self.obstacle_spawns = []
         self.obstacle_goals = []
@@ -461,9 +461,9 @@ class STDRMaster(mp.Process):
                             fov = "GM_PARAM_RBT_FOV"
                             seed_fov = str(task['fov'])
                             os.environ[fov] = seed_fov
-                            self.roslaunch_controller(task["robot"], task["controller"], controller_args)
+                            # self.roslaunch_controller(task["robot"], task["controller"], controller_args)
 
-                            # self.roslaunch_teleop()
+                            self.roslaunch_teleop(controller_args)
                             if self.dynamic_obstacles:
                                 cli_args = [path + "/launch/agent_global_path_manager.launch",
                                                     'num_obsts:=' + str(self.num_obsts),
@@ -823,7 +823,7 @@ class STDRMaster(mp.Process):
         self.controller_launch.start()
         # sys.stdout = sys.__stdout__
 
-    def roslaunch_teleop(self):
+    def roslaunch_teleop(self, controller_args):
         rospack = rospkg.RosPack()
         path = rospack.get_path("dynamic_gap")
 
@@ -831,6 +831,13 @@ class STDRMaster(mp.Process):
 
         uuid = roslaunch.rlutil.get_or_generate_uuid(None, True)
         #roslaunch.configure_logging(uuid)
+
+        for key,value in controller_args.items():
+            var_name = "GM_PARAM_"+ key.upper()
+            value = str(value)
+            os.environ[var_name] = value
+            print("Setting environment variable [" + var_name + "] to '" + value + "'")
+
         #print path
         cli_args = [path + "/launch/spawn_robot.launch",
                     'robot_namespace:=robot' + str(self.num_obsts),
