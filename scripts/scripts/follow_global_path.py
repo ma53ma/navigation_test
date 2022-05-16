@@ -90,20 +90,6 @@ class Agent:
         # transforming from map_static to known_map
         # this transform causes a lot of issues
         odom_in_known_map = tf2_geometry_msgs.do_transform_pose(msg.pose, map_static_to_known_map_trans)
-        '''
-        if len(self.plans[robot_namespace].plan.poses) == 0:
-            start = PoseStamped()
-            start.header.frame_id = "known_map"
-            start.header.stamp = rospy.Time.now()
-            start.pose.position.x = odom_in_known_map.pose.position.x
-            start.pose.position.y = odom_in_known_map.pose.position.y
-            start.pose.position.z = 0.0
-            start.pose.orientation.w = 1.0
-            self.tolerances[robot_namespace] = self.tolerances[robot_namespace] + 1
-            # start = self.get_start(i, robot_namespace)
-            self.get_global_plan(start, robot_namespace)
-            return
-        '''
         # odom comes in map_static frame
         # print('odom msg frame: ', msg.header.frame_id, 'odom pose: ', msg.pose.pose.position.x, msg.pose.pose.position.y)
 
@@ -111,20 +97,6 @@ class Agent:
         # print('odom in known map: ', odom_in_known_map.pose.position.x, ", ", odom_in_known_map.pose.position.y)
         #print('odom_in_known_map: ', odom_in_known_map)
         #print('transformed odom frame: ', odom_in_known_map.header.frame_id, 'transformed odom pose: ', odom_in_known_map.pose.position.x, odom_in_known_map.pose.position.y)
-        '''
-        if self.need_plan[robot_namespace]:
-            start = PoseStamped()
-            start.header.frame_id = "known_map"
-            start.header.stamp = rospy.Time.now()
-            start.pose.position.x = odom_in_known_map.pose.position.x
-            start.pose.position.y = odom_in_known_map.pose.position.y
-            start.pose.position.z = 0.0
-            start.pose.orientation.w = 1.0
-            self.get_global_plan(start, robot_namespace)
-            if len(self.plans[robot_namespace].plan.poses) > 0:
-                self.need_plan[robot_namespace] = False
-            return
-        '''
         # print('plan index:', self.plan_indices[robot_namespace], ' out of: ', len(self.plans[robot_namespace].plan.poses))
 
         #print('robot namespace: ', robot_namespace)
@@ -147,10 +119,11 @@ class Agent:
         diff_in_robot_0 = tf2_geometry_msgs.do_transform_vector3(diff_vect, known_map_to_robot_trans)
         #print('difference vector in robot0: ', diff_in_robot_0.vector.x, diff_in_robot_0.vector.y)
         twist = Twist()
-        [x_vel, y_vel] = self.clip_cmd_vel(diff_in_robot_0)
+        cmd_vel = np.array([diff_in_robot_0.vector.x, diff_in_robot_0.vector.y])
+        cmd_vel = self.clip_cmd_vel(cmd_vel)
         # print('x_vel: ', x_vel, ', y_vel: ', y_vel)
-        twist.linear.x = x_vel
-        twist.linear.y = y_vel
+        twist.linear.x = cmd_vel[0]
+        twist.linear.y = cmd_vel[1]
         # print('twist: ', twist)
         self.cmd_vel_pubs[robot_namespace].publish(twist)
 
@@ -206,14 +179,14 @@ class Agent:
         # print("trying self.plan.respone: ", self.plan.response)
         # print("trying self.plan.plan: ", self.plan.plan)
 
-    def clip_cmd_vel(self, diff_in_robot_0):
-        delta_x_norm = np.sqrt(np.square(diff_in_robot_0.vector.x) + np.square(diff_in_robot_0.vector.y))
+    def clip_cmd_vel(self, cmd_vel):
+        # delta_x_norm = np.sqrt(np.square(diff_in_robot_0.vector.x) + np.square(diff_in_robot_0.vector.y))
         # print('delta x norm: ', delta_x_norm)
         thresh = 0.50
-        if delta_x_norm > thresh:
-            return ([diff_in_robot_0.vector.x, diff_in_robot_0.vector.y] / delta_x_norm) * thresh
+        if cmd_vel[0] > thresh or cmd_vel[1] > thresh:
+            return thresh * cmd_vel / (np.maximum(np.abs(cmd_vel[0]), np.abs(cmd_vel[1])))
         else:
-            return [diff_in_robot_0.vector.x, diff_in_robot_0.vector.y]
+            return cmd_vel
 
 if __name__ == '__main__':
     try:
