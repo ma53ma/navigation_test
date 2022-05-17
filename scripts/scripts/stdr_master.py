@@ -300,7 +300,7 @@ class MultiMasterCoordinator:
     def addTasks(self):
         worlds = ['campus_laser']  #["hallway_laser","dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
-        seeds = list(range(1, 5))
+        seeds = list(range(0, 5))
         controllers = ['dynamic_gap'] # ['teb']
         pi_selection = ['3.14159']
         taskid = 0
@@ -366,7 +366,7 @@ class STDRMaster(mp.Process):
 
         self.gui = True
         self.world_queue = []
-        self.dynamic_obstacles = False
+        self.dynamic_obstacles = True
         self.agent_launch = []
         self.obstacle_spawns = []
         self.obstacle_goals = []
@@ -463,7 +463,7 @@ class STDRMaster(mp.Process):
                             os.environ[fov] = seed_fov
                             self.roslaunch_controller(task["robot"], task["controller"], controller_args)
 
-                            # self.roslaunch_teleop(controller_args)
+                            #self.roslaunch_teleop(controller_args)
                             if self.dynamic_obstacles:
                                 cli_args = [path + "/launch/agent_global_path_manager.launch",
                                                     'num_obsts:=' + str(self.num_obsts),
@@ -854,7 +854,7 @@ class STDRMaster(mp.Process):
         )
         self.spawner_launch.start()
 
-        path = rospack.get_path("gap_tracker")
+        path = rospack.get_path("dynamic_gap")
 
         cli_args = [path + "/launch/gap_tracker.launch",
                     'robot_namespace:=robot' + str(self.num_obsts),
