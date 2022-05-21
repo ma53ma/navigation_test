@@ -41,7 +41,7 @@ class Agent:
 
         # top left to bottom right ((x, y) to (x,y)
         # these are in world / known_map
-        self.campus_goal_regions = [[6, 17, 7, 16]]     # [[5, 17, 6, 15], [6, 15, 7, 8]]
+        self.campus_goal_regions = [[6, 14, 7, 13]]     # [[5, 17, 6, 15], [6, 15, 7, 8]]
         '''
         [10, 11, 16, 8],[1, 7, 10, 6],
         [9, 5, 13, 4],[16, 7, 21, 1],[1, 29, 15, 28],[1, 23, 3, 16],[4, 23, 10, 20],

@@ -461,9 +461,9 @@ class STDRMaster(mp.Process):
                             fov = "GM_PARAM_RBT_FOV"
                             seed_fov = str(task['fov'])
                             os.environ[fov] = seed_fov
-                            #self.roslaunch_controller(task["robot"], task["controller"], controller_args)
+                            self.roslaunch_controller(task["robot"], task["controller"], controller_args)
 
-                            self.roslaunch_teleop(controller_args)
+                            # self.roslaunch_teleop(controller_args)
                             if self.dynamic_obstacles:
                                 cli_args = [path + "/launch/agent_global_path_manager.launch",
                                                     'num_obsts:=' + str(self.num_obsts),
