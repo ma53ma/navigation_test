@@ -366,7 +366,7 @@ class STDRMaster(mp.Process):
 
         self.gui = True
         self.world_queue = []
-        self.dynamic_obstacles = False
+        self.dynamic_obstacles = True
         self.agent_launch = []
         self.obstacle_spawns = []
         self.obstacle_goals = []
@@ -483,8 +483,7 @@ class STDRMaster(mp.Process):
                             task.update(controller_args)    #Adding controller arguments to main task dict for easy logging
 
                             print("Running test...")
-                            # add some sort of wait function until all agents get plans?
-                            #master = rosgraph.Master('/mynode')
+                             #master = rosgraph.Master('/mynode')
                             #TODO: make this a more informative type
                             time.sleep(5)
                             # running a single test
@@ -630,7 +629,7 @@ class STDRMaster(mp.Process):
                 elif bumper_checker.collided:
                     keep_waiting = False
                     result = "BUMPER_COLLISION"
-                elif rospy.Time.now() - start_time > rospy.Duration(150):
+                elif rospy.Time.now() - start_time > rospy.Duration(600):
                     keep_waiting = False
                     result = "TIMED_OUT"
                 else:
