@@ -298,7 +298,7 @@ class MultiMasterCoordinator:
 
     # This list should be elsewhere, possibly in the configs package
     def addTasks(self):
-        worlds = ['campus_laser']  #["hallway_laser","dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
+        worlds = ['empty_laser']  #["hallway_laser","dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
         seeds = list(range(5))
         controllers = ['dynamic_gap'] # ['teb']
@@ -366,15 +366,13 @@ class STDRMaster(mp.Process):
 
         self.gui = True
         self.world_queue = []
-        self.dynamic_obstacles = False
+        self.dynamic_obstacles = True
         self.agent_launch = []
-        self.obstacle_spawns = []
         self.obstacle_goals = []
         self.obstacle_start_xs = []
         self.obstacle_start_ys = []
         self.obstacle_backup_goals = []
         self.valid_regions = []
-        self.agent_bounds = []
         self.num_obsts = 0
         self.rosout_msg = ""
         self.trans = [0.0, 0.0]
@@ -461,9 +459,9 @@ class STDRMaster(mp.Process):
                             fov = "GM_PARAM_RBT_FOV"
                             seed_fov = str(task['fov'])
                             os.environ[fov] = seed_fov
-                            self.roslaunch_controller(task["robot"], task["controller"], controller_args)
+                            #self.roslaunch_controller(task["robot"], task["controller"], controller_args)
 
-                            # self.roslaunch_teleop(controller_args)
+                            self.roslaunch_teleop(controller_args)
                             if self.dynamic_obstacles:
                                 cli_args = [path + "/launch/agent_global_path_manager.launch",
                                                     'num_obsts:=' + str(self.num_obsts),
@@ -699,36 +697,25 @@ class STDRMaster(mp.Process):
             self.trans[0] = 14.990204
             self.trans[1] = 13.294787
             self.valid_regions = scenario.valid_regions
-            self.agent_bounds = [1, 29, 1, 29]
-            print('original start: ', scenario.getStartingPose())
-            print('original goal: ', scenario.getGoal())
-            #self.obstacle_spawns = scenario.obstacle_spawns
+            #print('original start: ', scenario.getStartingPose())
+            #print('original goal: ', scenario.getGoal())
             #self.obstacle_goals = scenario.obstacle_goals
             # location [1,1] in map_static (need transform between map_static and known_map
         elif task["world"] == "empty_laser":
             scenario = EmptyScenario(task, "world")
             self.trans[0] = 13.630
             self.trans[1] = 13.499
-            self.obstacles = scenario.obstacles
-            self.agent_bounds = [5, 23, 5, 23]
-            self.obstacle_spawns = scenario.obstacle_spawns
-            self.obstacle_goals = scenario.obstacle_goals
-            self.obstacle_backup_goals = scenario.obstacle_backup_goals
+            self.valid_regions = scenario.valid_regions
         elif task["world"] == "hallway_laser":
             scenario = HallwayScenario(task, "world")
             self.trans[0] = 18.666
             self.trans[1] = 16.971
-            self.obstacles = scenario.obstacles
-            self.agent_bounds = [5, 23, 5, 23]
-            self.obstacle_spawns = scenario.obstacle_spawns
-            self.obstacle_goals = scenario.obstacle_goals
-            self.obstacle_backup_goals = scenario.obstacle_backup_goals
             self.valid_regions = scenario.valid_regions
 
         if self.dynamic_obstacles:
             self.obstacle_goals = [x - self.trans for x in self.obstacle_goals]
             self.obstacle_backup_goals = [x - self.trans for x in self.obstacle_backup_goals]
-            self.num_obsts = 1 #len(self.obstacle_spawns)
+            self.num_obsts = 1
             #self.new_goal_list = np.zeros(self.num_obsts)
 
         start = scenario.getStartingPose()
@@ -945,60 +932,10 @@ class STDRMaster(mp.Process):
         rand_region = self.valid_regions[np.random.randint(0, len(self.valid_regions))]
         start = [np.random.randint(rand_region[0], rand_region[2]),
                  np.random.randint(rand_region[3], rand_region[1])]
-        '''
-        while not self.valid_random_pos(start):
-            start = [np.random.randint(self.agent_bounds[0], self.agent_bounds[1]),
-                     np.random.randint(self.agent_bounds[2], self.agent_bounds[3])]
-        # print("valid start: ", start)
-        goal = [np.random.randint(self.agent_bounds[0], self.agent_bounds[1]),
-                     np.random.randint(self.agent_bounds[2], self.agent_bounds[3])]
-        while not self.valid_random_pos(goal):
-            goal = [np.random.randint(self.agent_bounds[0], self.agent_bounds[1]),
-                     np.random.randint(self.agent_bounds[2], self.agent_bounds[3])]
-        goal[0] = goal[0] - self.trans[0]
-        goal[1] = goal[1] - self.trans[1]
-        '''
+
         # print("valid goal: ", goal)
         return start
 
-    '''
-    def obstacle_callback(self, msg, topic):
-        robot_name = topic.split("/")[0]
-        robot_id = int(robot_name[5:])
-        if len(msg.status_list) > 0:
-            status = msg.status_list[0].status
-            # print('status for robot' + str(robot_id) + ": " + str(status))
-            if status == GoalStatus.SUCCEEDED or status == GoalStatus.ABORTED or status == GoalStatus.LOST or status == GoalStatus.REJECTED:
-                goal = [np.random.randint(self.agent_bounds[0], self.agent_bounds[1]),
-                     np.random.randint(self.agent_bounds[2], self.agent_bounds[3])]
-                while not self.valid_random_pos(goal):
-                    goal = [np.random.randint(self.agent_bounds[0], self.agent_bounds[1]),
-                     np.random.randint(self.agent_bounds[2], self.agent_bounds[3])]
-                goal[0] = goal[0] - self.trans[0]
-                goal[1] = goal[1] - self.trans[1]
-                # print('valid goal: ', goal)
-                self.send_goal(robot_id, goal)
-            # need to change something here to add other goals
-
-    def send_goal(self, i, goal):
-        client = actionlib.SimpleActionClient('/robot' + str(i) + '/move_base', MoveBaseAction)
-        # print("agent: waiting for server")
-        client.wait_for_server()
-        # print("agent: Done!")
-        target_pose = PoseStamped()
-        pose_msg = Pose()
-        pose_msg.position.x = goal[0]
-        pose_msg.position.y = goal[1]
-        q = tf.transformations.quaternion_from_euler(0, 0, 0)
-        pose_msg.orientation = Quaternion(*q)
-        target_pose.pose = pose_msg
-        goal = MoveBaseGoal()
-        goal.target_pose = target_pose
-        goal.target_pose.header.stamp = rospy.Time.now()
-        goal.target_pose.header.frame_id = 'known_map'
-        client.send_goal(goal)
-        # wait for result?
-    '''
     def shutdown(self):
         self.is_shutdown = True
 

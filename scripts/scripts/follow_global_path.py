@@ -49,10 +49,18 @@ class Agent:
         [20, 21, 23, 18], [16, 16, 17, 12],[19, 16, 22, 14],[25, 17, 28, 12],
         '''
 
-        self.empty_goal_regions = [[9, 11, 19, 6]]
+        self.empty_goal_regions = [[18, 10, 19, 9]]
 
         self.empty_world_transform = [13.630, 13.499]
         self.campus_world_transform = [14.990204, 13.294787]
+
+        world = "empty"
+        if world == "empty":
+            self.world_transform = self.empty_world_transform
+            self.goal_regions = self.empty_goal_regions
+        elif world == "campus":
+            self.world_transform = self.campus_world_transform
+            self.goal_regions = self.campus_goal_regions
 
         for i in range(0, num_obsts):
             robot_namespace = "robot" + str(i)
@@ -73,8 +81,9 @@ class Agent:
         start = PoseStamped()
         start.header.frame_id = "known_map"
         start.header.stamp = rospy.Time.now()
-        start.pose.position.x = new_start[0] - self.campus_world_transform[0]
-        start.pose.position.y = new_start[1] - self.campus_world_transform[1]
+        start.pose.position.x = new_start[0] - self.world_transform[0]
+        start.pose.position.y = new_start[1] - self.world_transform[1]
+        start.pose.position.y = new_start[1] - self.world_transform[1]
         start.pose.position.z = 0.0
         start.pose.orientation.w = 1.0
 
@@ -146,11 +155,11 @@ class Agent:
         goal.header.frame_id = "known_map"
         goal.header.stamp = rospy.Time.now()
 
-        rand_region = self.campus_goal_regions[np.random.randint(0, len(self.empty_goal_regions))]
+        rand_region = self.goal_regions[np.random.randint(0, len(self.goal_regions))]
         x_pos_in_init_frame = (rand_region[2] - rand_region[0])*np.random.random_sample() + rand_region[0]
         y_pos_in_init_frame = (rand_region[1] - rand_region[3])*np.random.random_sample() + rand_region[3]
-        goal.pose.position.x = x_pos_in_init_frame - self.campus_world_transform[0]
-        goal.pose.position.y = y_pos_in_init_frame - self.campus_world_transform[1]
+        goal.pose.position.x = x_pos_in_init_frame - self.world_transform[0]
+        goal.pose.position.y = y_pos_in_init_frame - self.world_transform[1]
         goal.pose.position.z = 0.0
         goal.pose.orientation.w = 1.0
         req = GetPlan()

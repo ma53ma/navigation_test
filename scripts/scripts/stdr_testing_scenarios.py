@@ -341,13 +341,12 @@ class EmptyScenario(TestingScenario):
         # self.num_obsts = 15
         #self.obstacle_spawns = np.array(
         #    [[14, 15], [14.5, 15], [15, 15], [15.5, 15], [15, 15]])
-        self.obstacle_spawns = np.array(
-            [[7, 9], [19, 9],[7, 9], [19, 9],[7, 9], [19, 9],[7, 9], [19, 9],[7, 9], [19, 9],[7, 9], [19, 9]])
+        self.valid_regions = [[9, 10, 10, 9]]
         #self.obstacle_spawns = np.add(np.random.randint(17, size=(self.num_obsts, 2)), 6)
         #self.obstacle_goals = np.array(
         #    [[13, 5], [14, 5], [15, 5], [16, 5], [17, 5]])
         self.obstacle_goals = np.array(
-            [[19, 9], [7, 9],[19, 9], [7, 9],[19, 9], [7, 9],[19, 9], [7, 9],[19, 9], [7, 9],[19, 9], [7, 9]])
+            [[19, 9]])
         #self.obstacle_goals = np.add(np.random.randint(17, size=(self.num_obsts, 2)), 6)
         #self.obstacle_backup_goals = np.add(np.random.randint(17, size=(self.num_obsts, 2)), 6)
         #self.obstacle_backup_goals = np.array(
@@ -378,7 +377,7 @@ class EmptyScenario(TestingScenario):
         # ranges from -9 to 9 --> let's only spawn -9 to -7
         x = self.random.random()*(18) - 9
         y = -9 #self.random.random()*(18) - 9
-        pose = [0, -9, 0] #[x, y, 0]
+        pose = [0, -7, 0] #[x, y, 0]
         init_pose = self.getPoseMsg(pose=pose)
 
         return init_pose
