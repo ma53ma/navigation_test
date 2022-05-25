@@ -41,7 +41,7 @@ class Agent:
 
         # top left to bottom right ((x, y) to (x,y)
         # these are in world / known_map
-        self.campus_goal_regions = [[6, 14, 7, 13]]     # [[5, 17, 6, 15], [6, 15, 7, 8]]
+        self.campus_goal_regions = [[6, 15, 7, 14]]     # [[5, 17, 6, 15], [6, 15, 7, 8]]
         '''
         [10, 11, 16, 8],[1, 7, 10, 6],
         [9, 5, 13, 4],[16, 7, 21, 1],[1, 29, 15, 28],[1, 23, 3, 16],[4, 23, 10, 20],
@@ -54,7 +54,7 @@ class Agent:
         self.empty_world_transform = [13.630, 13.499]
         self.campus_world_transform = [14.990204, 13.294787]
 
-        world = "empty"
+        world = "campus"
         if world == "empty":
             self.world_transform = self.empty_world_transform
             self.goal_regions = self.empty_goal_regions
@@ -138,7 +138,7 @@ class Agent:
 
         delta_x = np.sqrt(np.square(x_diff) + np.square(y_diff))
         # print('delta_x: ', delta_x)
-        if delta_x < 0.1:
+        if delta_x < 0.4:
             self.plan_indices[robot_namespace] += 1
 
         if len(self.plans[robot_namespace].plan.poses) <= self.plan_indices[robot_namespace]:

@@ -298,7 +298,7 @@ class MultiMasterCoordinator:
 
     # This list should be elsewhere, possibly in the configs package
     def addTasks(self):
-        worlds = ['empty_laser']  #["hallway_laser","dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
+        worlds = ['campus_laser']  #["hallway_laser","dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
         seeds = list(range(5))
         controllers = ['dynamic_gap'] # ['teb']
@@ -459,9 +459,9 @@ class STDRMaster(mp.Process):
                             fov = "GM_PARAM_RBT_FOV"
                             seed_fov = str(task['fov'])
                             os.environ[fov] = seed_fov
-                            #self.roslaunch_controller(task["robot"], task["controller"], controller_args)
+                            self.roslaunch_controller(task["robot"], task["controller"], controller_args)
 
-                            self.roslaunch_teleop(controller_args)
+                            #self.roslaunch_teleop(controller_args)
                             if self.dynamic_obstacles:
                                 cli_args = [path + "/launch/agent_global_path_manager.launch",
                                                     'num_obsts:=' + str(self.num_obsts),
@@ -899,7 +899,7 @@ class STDRMaster(mp.Process):
             for i in range(0, self.num_obsts):
                 #print('spawning robot' + str(i))
 
-                start = self.agent_random_start_and_goal()
+                start = self.get_random_agent_start()
                 #print('generated start: ', start)
                 self.obstacle_start_xs.append(start[0])
                 self.obstacle_start_ys.append(start[1])
@@ -927,13 +927,12 @@ class STDRMaster(mp.Process):
                 return False
         return True
 
-    def agent_random_start_and_goal(self):
+    def get_random_agent_start(self):
 
         rand_region = self.valid_regions[np.random.randint(0, len(self.valid_regions))]
         start = [np.random.randint(rand_region[0], rand_region[2]),
                  np.random.randint(rand_region[3], rand_region[1])]
-
-        # print("valid goal: ", goal)
+        #start = [9, 9]
         return start
 
     def shutdown(self):
