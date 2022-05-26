@@ -54,7 +54,7 @@ class Agent:
         self.empty_world_transform = [13.630, 13.499]
         self.campus_world_transform = [14.990204, 13.294787]
 
-        world = "campus"
+        world = "empty"
         if world == "empty":
             self.world_transform = self.empty_world_transform
             self.goal_regions = self.empty_goal_regions
@@ -91,34 +91,32 @@ class Agent:
 
     def odom_CB(self, msg):
         robot_namespace = msg.child_frame_id
-        i = int(robot_namespace[5:])
 
         map_static_to_known_map_trans = self.tfBuffer.lookup_transform("known_map", "map_static", rospy.Time(), rospy.Duration(3.0))
 
-        # print(map_static_to_known_map_trans)
-        # transforming from map_static to known_map
-        # this transform causes a lot of issues
         odom_in_known_map = tf2_geometry_msgs.do_transform_pose(msg.pose, map_static_to_known_map_trans)
-        # odom comes in map_static frame
-        # print('odom msg frame: ', msg.header.frame_id, 'odom pose: ', msg.pose.pose.position.x, msg.pose.pose.position.y)
 
-
-        # print('odom in known map: ', odom_in_known_map.pose.position.x, ", ", odom_in_known_map.pose.position.y)
-        #print('odom_in_known_map: ', odom_in_known_map)
-        #print('transformed odom frame: ', odom_in_known_map.header.frame_id, 'transformed odom pose: ', odom_in_known_map.pose.position.x, odom_in_known_map.pose.position.y)
-        # print('plan index:', self.plan_indices[robot_namespace], ' out of: ', len(self.plans[robot_namespace].plan.poses))
-
-        #print('robot namespace: ', robot_namespace)
-        #print('plan index: ', self.plan_indices[robot_namespace])
-        #print('plan poses: ', self.plans[robot_namespace].plan.poses)
         desired_pose = self.plans[robot_namespace].plan.poses[self.plan_indices[robot_namespace]]
-        #print('desired pose (presumably in known_map): ', desired_pose.pose.position.x, desired_pose.pose.position.y)
         x_diff = odom_in_known_map.pose.position.x - desired_pose.pose.position.x
         y_diff = odom_in_known_map.pose.position.y - desired_pose.pose.position.y
-        # transforming from known_map to robot0
-        #print('x_diff: ', x_diff, ', y_diff: ', y_diff)
+
+        delta_x = np.sqrt(np.square(x_diff) + np.square(y_diff))
+        # print('delta_x: ', delta_x)
+        while delta_x < 0.4:
+            desired_pose = self.plans[robot_namespace].plan.poses[self.plan_indices[robot_namespace]]
+            x_diff = odom_in_known_map.pose.position.x - desired_pose.pose.position.x
+            y_diff = odom_in_known_map.pose.position.y - desired_pose.pose.position.y
+            delta_x = np.sqrt(np.square(x_diff) + np.square(y_diff))
+            self.plan_indices[robot_namespace] += 1
+            if len(self.plans[robot_namespace].plan.poses) <= self.plan_indices[robot_namespace]:
+                self.plan_indices[robot_namespace] = 0
+                self.plans[robot_namespace].plan.poses = np.flip(self.plans[robot_namespace].plan.poses, axis=0)
+                print('flipping plan')
+
+        self.plan_publishers[robot_namespace].publish(self.plans_to_publish[robot_namespace])
+
+        # calculate cmd_vel
         known_map_to_robot_trans = self.tfBuffer.lookup_transform(robot_namespace, "known_map", rospy.Time())
-        # print('known_map_to_robot_trans: ', known_map_to_robot_trans)
         diff_vect = Vector3Stamped()
         diff_vect.header.frame_id = "known_map"
         diff_vect.header.stamp = rospy.Time.now()
@@ -136,18 +134,6 @@ class Agent:
         # print('twist: ', twist)
         self.cmd_vel_pubs[robot_namespace].publish(twist)
 
-        delta_x = np.sqrt(np.square(x_diff) + np.square(y_diff))
-        # print('delta_x: ', delta_x)
-        if delta_x < 0.4:
-            self.plan_indices[robot_namespace] += 1
-
-        if len(self.plans[robot_namespace].plan.poses) <= self.plan_indices[robot_namespace]:
-            self.plan_indices[robot_namespace] = 0
-            self.plans[robot_namespace].plan.poses = np.flip(self.plans[robot_namespace].plan.poses, axis=0)
-            print('flipping plan')
-
-        self.plan_publishers[robot_namespace].publish(self.plans_to_publish[robot_namespace])
-
 
     def get_global_plan(self, start, robot_namespace):
         print('generating plan for ' + robot_namespace)
@@ -156,8 +142,8 @@ class Agent:
         goal.header.stamp = rospy.Time.now()
 
         rand_region = self.goal_regions[np.random.randint(0, len(self.goal_regions))]
-        x_pos_in_init_frame = (rand_region[2] - rand_region[0])*np.random.random_sample() + rand_region[0]
-        y_pos_in_init_frame = (rand_region[1] - rand_region[3])*np.random.random_sample() + rand_region[3]
+        x_pos_in_init_frame = 18  # (rand_region[2] - rand_region[0])*np.random.random_sample() + rand_region[0]
+        y_pos_in_init_frame = 9  # (rand_region[1] - rand_region[3])*np.random.random_sample() + rand_region[3]
         goal.pose.position.x = x_pos_in_init_frame - self.world_transform[0]
         goal.pose.position.y = y_pos_in_init_frame - self.world_transform[1]
         goal.pose.position.z = 0.0
