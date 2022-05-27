@@ -54,7 +54,7 @@ class Agent:
         self.empty_world_transform = [13.630, 13.499]
         self.campus_world_transform = [14.990204, 13.294787]
 
-        world = "empty"
+        world = "campus"
         if world == "empty":
             self.world_transform = self.empty_world_transform
             self.goal_regions = self.empty_goal_regions
@@ -70,7 +70,6 @@ class Agent:
             self.tolerances[robot_namespace] = 0.5
             start = self.get_start(i)
             self.get_global_plan(start, robot_namespace)
-
 
             self.odom_subs[robot_namespace] = rospy.Subscriber(robot_namespace + "/odom", Odometry, self.odom_CB, queue_size=5)
             self.cmd_vel_pubs[robot_namespace] = rospy.Publisher(robot_namespace + "/cmd_vel", Twist, queue_size=5)
@@ -100,20 +99,7 @@ class Agent:
         x_diff = odom_in_known_map.pose.position.x - desired_pose.pose.position.x
         y_diff = odom_in_known_map.pose.position.y - desired_pose.pose.position.y
 
-        delta_x = np.sqrt(np.square(x_diff) + np.square(y_diff))
         # print('delta_x: ', delta_x)
-        while delta_x < 0.4:
-            desired_pose = self.plans[robot_namespace].plan.poses[self.plan_indices[robot_namespace]]
-            x_diff = odom_in_known_map.pose.position.x - desired_pose.pose.position.x
-            y_diff = odom_in_known_map.pose.position.y - desired_pose.pose.position.y
-            delta_x = np.sqrt(np.square(x_diff) + np.square(y_diff))
-            self.plan_indices[robot_namespace] += 1
-            if len(self.plans[robot_namespace].plan.poses) <= self.plan_indices[robot_namespace]:
-                self.plan_indices[robot_namespace] = 0
-                self.plans[robot_namespace].plan.poses = np.flip(self.plans[robot_namespace].plan.poses, axis=0)
-                print('flipping plan')
-
-        self.plan_publishers[robot_namespace].publish(self.plans_to_publish[robot_namespace])
 
         # calculate cmd_vel
         known_map_to_robot_trans = self.tfBuffer.lookup_transform(robot_namespace, "known_map", rospy.Time())
@@ -134,16 +120,26 @@ class Agent:
         # print('twist: ', twist)
         self.cmd_vel_pubs[robot_namespace].publish(twist)
 
+        delta_x = np.sqrt(np.square(x_diff) + np.square(y_diff))
+        if delta_x < 0.4:
+            self.plan_indices[robot_namespace] += 1
+
+        if len(self.plans[robot_namespace].plan.poses) <= self.plan_indices[robot_namespace]:
+            self.plan_indices[robot_namespace] = 0
+            self.plans[robot_namespace].plan.poses = np.flip(self.plans[robot_namespace].plan.poses, axis=0)
+            # print('flipping plan')
+
+        self.plan_publishers[robot_namespace].publish(self.plans_to_publish[robot_namespace])
 
     def get_global_plan(self, start, robot_namespace):
-        print('generating plan for ' + robot_namespace)
+        # print('generating plan for ' + robot_namespace)
         goal = PoseStamped()
         goal.header.frame_id = "known_map"
         goal.header.stamp = rospy.Time.now()
 
         rand_region = self.goal_regions[np.random.randint(0, len(self.goal_regions))]
-        x_pos_in_init_frame = 18  # (rand_region[2] - rand_region[0])*np.random.random_sample() + rand_region[0]
-        y_pos_in_init_frame = 9  # (rand_region[1] - rand_region[3])*np.random.random_sample() + rand_region[3]
+        x_pos_in_init_frame = (rand_region[2] - rand_region[0])*np.random.random_sample() + rand_region[0] # 18  #
+        y_pos_in_init_frame = (rand_region[1] - rand_region[3])*np.random.random_sample() + rand_region[3] # 9  #
         goal.pose.position.x = x_pos_in_init_frame - self.world_transform[0]
         goal.pose.position.y = y_pos_in_init_frame - self.world_transform[1]
         goal.pose.position.z = 0.0
@@ -152,10 +148,10 @@ class Agent:
         req.start = start
         req.goal = goal
         req.tolerance = self.tolerances[robot_namespace]
-        print('start of : ', req.start.pose.position.x, req.start.pose.position.y)
-        print('goal of : ', req.goal.pose.position.x, req.goal.pose.position.y)
+        # print('start of : ', req.start.pose.position.x, req.start.pose.position.y)
+        # print('goal of : ', req.goal.pose.position.x, req.goal.pose.position.y)
         self.plans[robot_namespace] = self.get_plan(req.start, req.goal, req.tolerance)
-        print('plan has length of: ', len(self.plans[robot_namespace].plan.poses))
+        # print('plan has length of: ', len(self.plans[robot_namespace].plan.poses))
         pub_pose_array = PoseArray()
         pub_pose_array.header.frame_id = "known_map"
         pub_pose_array.header.stamp = rospy.Time.now()
