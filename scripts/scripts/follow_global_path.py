@@ -54,7 +54,7 @@ class Agent:
         self.empty_world_transform = [13.630, 13.499]
         self.campus_world_transform = [14.990204, 13.294787]
 
-        world = "campus"
+        world = "empty"
         if world == "empty":
             self.world_transform = self.empty_world_transform
             self.goal_regions = self.empty_goal_regions
@@ -118,7 +118,7 @@ class Agent:
         twist.linear.x = cmd_vel[0]
         twist.linear.y = cmd_vel[1]
         # print('twist: ', twist)
-        self.cmd_vel_pubs[robot_namespace].publish(twist)
+        # self.cmd_vel_pubs[robot_namespace].publish(twist)
 
         delta_x = np.sqrt(np.square(x_diff) + np.square(y_diff))
         if delta_x < 0.4:
@@ -138,8 +138,8 @@ class Agent:
         goal.header.stamp = rospy.Time.now()
 
         rand_region = self.goal_regions[np.random.randint(0, len(self.goal_regions))]
-        x_pos_in_init_frame = (rand_region[2] - rand_region[0])*np.random.random_sample() + rand_region[0] # 18  #
-        y_pos_in_init_frame = (rand_region[1] - rand_region[3])*np.random.random_sample() + rand_region[3] # 9  #
+        x_pos_in_init_frame = 13 # (rand_region[2] - rand_region[0])*np.random.random_sample() + rand_region[0] #
+        y_pos_in_init_frame = 9  # (rand_region[1] - rand_region[3])*np.random.random_sample() + rand_region[3] #
         goal.pose.position.x = x_pos_in_init_frame - self.world_transform[0]
         goal.pose.position.y = y_pos_in_init_frame - self.world_transform[1]
         goal.pose.position.z = 0.0
