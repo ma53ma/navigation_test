@@ -170,8 +170,7 @@ class CampusScenario(TestingScenario):
 
         zones = [Zone1,Zone2,Zone3,Zone4,Zone5,Zone6,Zone7,Zone8,Zone9,Zone10,Zone11,Zone12,Zone13]
 
-
-        self.valid_regions = [[6, 12, 7, 11]] #       [[6, 15, 7, 8], [5, 17, 6, 15]]
+        self.valid_regions = [[6, 10, 7, 9]] #       [[6, 15, 7, 8], [5, 17, 6, 15]]
         '''
         [[1, 29, 15, 28],[1, 23, 3, 16],[4, 23, 10, 20],
                                 [13, 27, 15, 22],[16, 25, 28, 24],[12, 21, 14, 18],

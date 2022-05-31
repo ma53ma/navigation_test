@@ -57,7 +57,7 @@ class Agent:
         self.empty_world_transform = [13.630, 13.499]
         self.campus_world_transform = [14.990204, 13.294787]
 
-        world = "empty"
+        world = "campus"
         if world == "empty":
             self.world_transform = self.empty_world_transform
             self.goal_regions = self.empty_goal_regions
@@ -152,8 +152,8 @@ class Agent:
         goal.header.stamp = rospy.Time.now()
 
         rand_region = self.goal_regions[np.random.randint(0, len(self.goal_regions))]
-        x_pos_in_init_frame = 18 # (rand_region[2] - rand_region[0])*np.random.random_sample() + rand_region[0] #
-        y_pos_in_init_frame = 9  # (rand_region[1] - rand_region[3])*np.random.random_sample() + rand_region[3] #
+        x_pos_in_init_frame = (rand_region[2] - rand_region[0])*np.random.random_sample() + rand_region[0] #
+        y_pos_in_init_frame = (rand_region[1] - rand_region[3])*np.random.random_sample() + rand_region[3] #
         goal.pose.position.x = x_pos_in_init_frame - self.world_transform[0]
         goal.pose.position.y = y_pos_in_init_frame - self.world_transform[1]
         goal.pose.position.z = 0.0
@@ -185,7 +185,7 @@ class Agent:
         # print("trying self.plan.plan: ", self.plan.plan)
 
     def get_cmd_vel(self, error_t):
-        K_p = 1.0
+        K_p = 0.5
         cmd_vel = K_p*error_t
         # delta_x_norm = np.sqrt(np.square(diff_in_robot_0.vector.x) + np.square(diff_in_robot_0.vector.y))
         # print('delta x norm: ', delta_x_norm)
