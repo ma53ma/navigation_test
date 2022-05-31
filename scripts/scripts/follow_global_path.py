@@ -152,7 +152,7 @@ class Agent:
         goal.header.stamp = rospy.Time.now()
 
         rand_region = self.goal_regions[np.random.randint(0, len(self.goal_regions))]
-        x_pos_in_init_frame = 16 # (rand_region[2] - rand_region[0])*np.random.random_sample() + rand_region[0] #
+        x_pos_in_init_frame = 18 # (rand_region[2] - rand_region[0])*np.random.random_sample() + rand_region[0] #
         y_pos_in_init_frame = 9  # (rand_region[1] - rand_region[3])*np.random.random_sample() + rand_region[3] #
         goal.pose.position.x = x_pos_in_init_frame - self.world_transform[0]
         goal.pose.position.y = y_pos_in_init_frame - self.world_transform[1]

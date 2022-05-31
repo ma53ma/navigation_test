@@ -298,7 +298,7 @@ class MultiMasterCoordinator:
 
     # This list should be elsewhere, possibly in the configs package
     def addTasks(self):
-        worlds = ['campus_laser']  #["hallway_laser","dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
+        worlds = ['empty_laser']  #["hallway_laser","dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
         seeds = list(range(1, 5))
         controllers = ['dynamic_gap'] # ['teb']
@@ -366,7 +366,7 @@ class STDRMaster(mp.Process):
 
         self.gui = True
         self.world_queue = []
-        self.dynamic_obstacles = False
+        self.dynamic_obstacles = True
         self.agent_launch = []
         self.obstacle_goals = []
         self.obstacle_start_xs = []
@@ -459,9 +459,9 @@ class STDRMaster(mp.Process):
                             fov = "GM_PARAM_RBT_FOV"
                             seed_fov = str(task['fov'])
                             os.environ[fov] = seed_fov
-                            self.roslaunch_controller(task["robot"], task["controller"], controller_args)
+                            # self.roslaunch_controller(task["robot"], task["controller"], controller_args)
 
-                            #self.roslaunch_teleop(controller_args)
+                            self.roslaunch_teleop(controller_args)
                             if self.dynamic_obstacles:
                                 cli_args = [path + "/launch/agent_global_path_manager.launch",
                                                     'num_obsts:=' + str(self.num_obsts),
@@ -929,10 +929,10 @@ class STDRMaster(mp.Process):
 
     def get_random_agent_start(self):
 
-        rand_region = self.valid_regions[np.random.randint(0, len(self.valid_regions))]
+        # rand_region = self.valid_regions[np.random.randint(0, len(self.valid_regions))]
         #start = [np.random.randint(rand_region[0], rand_region[2]),
         #         np.random.randint(rand_region[3], rand_region[1])]
-        start = [11, 9]
+        start = [9, 9]
         return start
 
     def shutdown(self):
