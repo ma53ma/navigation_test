@@ -44,13 +44,11 @@ class Agent:
 
         # top left to bottom right ((x, y) to (x,y)
         # these are in world / known_map
-        self.campus_goal_regions = [[6, 15, 7, 14]]     # [[5, 17, 6, 15], [6, 15, 7, 8]]
-        '''
-        [10, 11, 16, 8],[1, 7, 10, 6],
-        [9, 5, 13, 4],[16, 7, 21, 1],[1, 29, 15, 28],[1, 23, 3, 16],[4, 23, 10, 20],
-        [13, 27, 15, 22],[16, 25, 28, 24],[12, 21, 14, 18],
-        [20, 21, 23, 18], [16, 16, 17, 12],[19, 16, 22, 14],[25, 17, 28, 12],
-        '''
+        self.campus_goal_regions = [[6, 8, 7, 16], [5, 15, 7, 18],[1, 28, 5, 30],[1, 16, 4, 22],
+                              [4, 20, 11, 24],[13, 22, 16, 28],[16, 25, 29, 26],
+                              [12, 18, 15, 22],[20, 18, 24, 22],[16, 12, 18, 17],
+                              [19, 14, 23, 17],[25, 12, 29, 18],[10, 8, 17, 12],
+                              [1, 6, 11, 8], [9, 4, 14, 6], [16, 1, 22, 8]]
 
         self.empty_goal_regions = [[18, 10, 19, 9]]
 
@@ -152,8 +150,8 @@ class Agent:
         goal.header.stamp = rospy.Time.now()
 
         rand_region = self.goal_regions[np.random.randint(0, len(self.goal_regions))]
-        x_pos_in_init_frame = (rand_region[2] - rand_region[0])*np.random.random_sample() + rand_region[0] #
-        y_pos_in_init_frame = (rand_region[1] - rand_region[3])*np.random.random_sample() + rand_region[3] #
+        x_pos_in_init_frame = np.random.randint(rand_region[0], rand_region[2])
+        y_pos_in_init_frame = np.random.randint(rand_region[1], rand_region[3])
         goal.pose.position.x = x_pos_in_init_frame - self.world_transform[0]
         goal.pose.position.y = y_pos_in_init_frame - self.world_transform[1]
         goal.pose.position.z = 0.0

@@ -300,7 +300,7 @@ class MultiMasterCoordinator:
     def addTasks(self):
         worlds = ['campus_laser']  #["hallway_laser","dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
-        seeds = list(range(1, 5))
+        seeds = list(range(5))
         controllers = ['dynamic_gap'] # ['teb']
         pi_selection = ['3.14159']
         taskid = 0
@@ -366,7 +366,7 @@ class STDRMaster(mp.Process):
 
         self.gui = True
         self.world_queue = []
-        self.dynamic_obstacles = False
+        self.dynamic_obstacles = True
         self.agent_launch = []
         self.obstacle_goals = []
         self.obstacle_start_xs = []
@@ -715,7 +715,7 @@ class STDRMaster(mp.Process):
         if self.dynamic_obstacles:
             self.obstacle_goals = [x - self.trans for x in self.obstacle_goals]
             self.obstacle_backup_goals = [x - self.trans for x in self.obstacle_backup_goals]
-            self.num_obsts = 1
+            self.num_obsts = 15
             #self.new_goal_list = np.zeros(self.num_obsts)
 
         start = scenario.getStartingPose()
@@ -918,20 +918,13 @@ class STDRMaster(mp.Process):
                 )
                 self.agent_launch.append(agent_spawn_parent)
                 self.agent_launch[i].start()
-                rospy.sleep(0.01)
-
-    def valid_random_pos(self, pos):
-        for obstacle in self.obstacles:
-            if obstacle[0] <= pos[0] <= obstacle[2] and obstacle[3] <= pos[1] <= obstacle[1]:
-                # within obstacle
-                return False
-        return True
+                rospy.sleep(0.1)
 
     def get_random_agent_start(self):
 
         rand_region = self.valid_regions[np.random.randint(0, len(self.valid_regions))]
         start = [np.random.randint(rand_region[0], rand_region[2]),
-                 np.random.randint(rand_region[3], rand_region[1])]
+                 np.random.randint(rand_region[1], rand_region[3])]
         # start = [13, 9]
         return start
 
