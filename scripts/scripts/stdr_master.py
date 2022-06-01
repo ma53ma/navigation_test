@@ -300,7 +300,7 @@ class MultiMasterCoordinator:
     def addTasks(self):
         worlds = ['campus_laser']  #["hallway_laser","dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
-        seeds = list(range(5))
+        seeds = list(range(10))
         controllers = ['dynamic_gap'] # ['teb']
         pi_selection = ['3.14159']
         taskid = 0
@@ -476,7 +476,7 @@ class STDRMaster(mp.Process):
                                     is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
                                 )
                                 self.agent_global_path_manager_parent.start()
-                                rospy.sleep(5.0)
+                                rospy.sleep(1.0)
 
                             task.update(controller_args)    #Adding controller arguments to main task dict for easy logging
 
@@ -523,6 +523,8 @@ class STDRMaster(mp.Process):
                         for i in range(0, len(self.agent_launch)):
                             self.agent_launch[i].shutdown()
                         self.agent_launch = []
+                        self.obstacle_start_xs = []
+                        self.obstacle_start_ys = []
 
                         if self.agent_global_path_manager_parent is not None:
                             self.agent_global_path_manager_parent.shutdown()
@@ -725,8 +727,8 @@ class STDRMaster(mp.Process):
         goal.pose.position.x += self.trans[0]
         goal.pose.position.y += self.trans[1]
 
-        print('final start: ', start)
-        print('final goal: ', goal)
+        # print('final start: ', start)
+        # print('final goal: ', goal)
         # add start and goal to obstacles list so that agents cannot spawn really close to rbt
         #self.obstacles.append([start.position.x - 2, start.position.y + 2, start.position.x + 2, start.position.y - 2])
         #self.obstacles.append([goal.position.x - 2, goal.position.y + 2, goal.position.x + 2, goal.position.y - 2])
