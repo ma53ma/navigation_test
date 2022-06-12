@@ -366,7 +366,7 @@ class STDRMaster(mp.Process):
 
         self.gui = True
         self.world_queue = []
-        self.dynamic_obstacles = True
+        self.dynamic_obstacles = False
         self.agent_launch = []
         self.obstacle_goals = []
         self.obstacle_start_xs = []
