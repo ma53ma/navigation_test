@@ -43,7 +43,7 @@ class Agent:
         self.tfBuffer = tf2_ros.Buffer()
         self.listener = tf2_ros.TransformListener(self.tfBuffer)
 
-        # top left to bottom right ((x, y) to (x,y)
+        # bottom left to top right ((x, y) to (x,y)
         # these are in world / known_map
         self.campus_goal_regions = [[6, 8, 7, 16], [5, 15, 7, 18],[1, 28, 5, 30],[1, 16, 4, 22],
                                 [4, 20, 11, 24],[13, 22, 16, 28],[16, 25, 29, 26],
@@ -51,12 +51,12 @@ class Agent:
                                 [19, 14, 23, 17],[25, 12, 29, 18],[10, 8, 17, 12],
                                 [1, 6, 11, 8], [9, 4, 14, 6], [16, 1, 22, 8]]
 
-        self.empty_goal_regions = [[18, 10, 19, 9]]
+        self.empty_goal_regions = [[18, 9, 19, 10]]
 
         self.empty_world_transform = [13.630, 13.499]
         self.campus_world_transform = [14.990204, 13.294787]
 
-        world = "campus"
+        world = "empty"
         if world == "empty":
             self.world_transform = self.empty_world_transform
             self.goal_regions = self.empty_goal_regions
@@ -71,7 +71,7 @@ class Agent:
             self.plan_publishers[robot_namespace] = rospy.Publisher(robot_namespace + "/global_path", PoseArray, queue_size=5)
             self.tolerances[robot_namespace] = 0.5
             start = self.get_start(i)
-            self.get_global_plan(start, robot_namespace)
+            self.get_global_plan(start, robot_namespace, i)
 
             self.odom_subs[robot_namespace] = rospy.Subscriber(robot_namespace + "/odom", Odometry, self.odom_CB, queue_size=5)
             self.cmd_vel_pubs[robot_namespace] = rospy.Publisher(robot_namespace + "/cmd_vel", Twist, queue_size=5)
@@ -153,7 +153,7 @@ class Agent:
 
         self.plan_publishers[robot_namespace].publish(self.plans_to_publish[robot_namespace])
 
-    def get_global_plan(self, start, robot_namespace):
+    def get_global_plan(self, start, robot_namespace, i):
 
         goal = PoseStamped()
         goal.header.frame_id = "known_map"
@@ -162,8 +162,14 @@ class Agent:
         known_map_to_map_static = self.tfBuffer.lookup_transform("map_static", "known_map", rospy.Time(), rospy.Duration(3.0))
 
         rand_region = self.goal_regions[np.random.randint(0, len(self.goal_regions))]
-        x_pos_in_init_frame = np.random.randint(rand_region[0], rand_region[2])
-        y_pos_in_init_frame = np.random.randint(rand_region[1], rand_region[3])
+        if i == 0:
+            x_pos_in_init_frame = 18
+            y_pos_in_init_frame = 9
+        else:
+            x_pos_in_init_frame = 9
+            y_pos_in_init_frame = 9
+        # x_pos_in_init_frame = np.random.randint(rand_region[0], rand_region[2])
+        # y_pos_in_init_frame = np.random.randint(rand_region[1], rand_region[3])
         goal.pose.position.x = x_pos_in_init_frame - self.world_transform[0]
         goal.pose.position.y = y_pos_in_init_frame - self.world_transform[1]
         goal.pose.position.z = 0.0

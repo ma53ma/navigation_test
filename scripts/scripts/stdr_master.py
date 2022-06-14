@@ -298,9 +298,9 @@ class MultiMasterCoordinator:
 
     # This list should be elsewhere, possibly in the configs package
     def addTasks(self):
-        worlds = ['campus_laser']  #["hallway_laser","dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
+        worlds = ['empty_laser']  #["hallway_laser","dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
-        seeds = list(range(10, 20))
+        seeds = list(range(1))
         controllers = ['dynamic_gap'] # ['teb']
         pi_selection = ['3.14159']
         taskid = 0
@@ -366,7 +366,7 @@ class STDRMaster(mp.Process):
 
         self.gui = True
         self.world_queue = []
-        self.dynamic_obstacles = False
+        self.dynamic_obstacles = True
         self.agent_launch = []
         self.obstacle_goals = []
         self.obstacle_start_xs = []
@@ -717,7 +717,7 @@ class STDRMaster(mp.Process):
         if self.dynamic_obstacles:
             self.obstacle_goals = [x - self.trans for x in self.obstacle_goals]
             self.obstacle_backup_goals = [x - self.trans for x in self.obstacle_backup_goals]
-            self.num_obsts = 15
+            self.num_obsts = 2
             #self.new_goal_list = np.zeros(self.num_obsts)
 
         start = scenario.getStartingPose()
@@ -901,7 +901,11 @@ class STDRMaster(mp.Process):
             for i in range(0, self.num_obsts):
                 #print('spawning robot' + str(i))
 
-                start = self.get_random_agent_start()
+                #start = self.get_random_agent_start()
+                if i == 0:
+                    start = [10, 9]
+                else:
+                    start = [17, 9]
                 #print('generated start: ', start)
                 self.obstacle_start_xs.append(start[0])
                 self.obstacle_start_ys.append(start[1])
@@ -927,7 +931,7 @@ class STDRMaster(mp.Process):
         rand_region = self.valid_regions[np.random.randint(0, len(self.valid_regions))]
         start = [np.random.randint(rand_region[0], rand_region[2]),
                  np.random.randint(rand_region[1], rand_region[3])]
-        # start = [13, 9]
+        #start = [12, 9]
         return start
 
     def shutdown(self):
