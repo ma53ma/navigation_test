@@ -208,7 +208,7 @@ class Agent:
         # print("trying self.plan.plan: ", self.plan.plan)
 
     def get_cmd_vel(self, error_t):
-        K_p = 0.5
+        K_p = 0.75
         cmd_vel = K_p*error_t
         # delta_x_norm = np.sqrt(np.square(diff_in_robot_0.vector.x) + np.square(diff_in_robot_0.vector.y))
         # print('delta x norm: ', delta_x_norm)
