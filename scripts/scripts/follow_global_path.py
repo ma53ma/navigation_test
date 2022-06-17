@@ -56,7 +56,7 @@ class Agent:
         self.empty_world_transform = [13.630, 13.499]
         self.campus_world_transform = [14.990204, 13.294787]
 
-        world = "empty"
+        world = "campus"
         if world == "empty":
             self.world_transform = self.empty_world_transform
             self.goal_regions = self.empty_goal_regions
@@ -162,14 +162,17 @@ class Agent:
         known_map_to_map_static = self.tfBuffer.lookup_transform("map_static", "known_map", rospy.Time(), rospy.Duration(3.0))
 
         rand_region = self.goal_regions[np.random.randint(0, len(self.goal_regions))]
+        '''
         if i == 0:
-            x_pos_in_init_frame = 18
+            x_pos_in_init_frame = 15
             y_pos_in_init_frame = 12
         else:
-            x_pos_in_init_frame = 9
+            x_pos_in_init_frame = 18
             y_pos_in_init_frame = 12
-        # x_pos_in_init_frame = np.random.randint(rand_region[0], rand_region[2])
-        # y_pos_in_init_frame = np.random.randint(rand_region[1], rand_region[3])
+        '''
+
+        x_pos_in_init_frame = np.random.randint(rand_region[0], rand_region[2])
+        y_pos_in_init_frame = np.random.randint(rand_region[1], rand_region[3])
         goal.pose.position.x = x_pos_in_init_frame - self.world_transform[0]
         goal.pose.position.y = y_pos_in_init_frame - self.world_transform[1]
         goal.pose.position.z = 0.0

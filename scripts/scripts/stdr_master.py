@@ -298,7 +298,7 @@ class MultiMasterCoordinator:
 
     # This list should be elsewhere, possibly in the configs package
     def addTasks(self):
-        worlds = ['empty_laser']  #["hallway_laser","dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
+        worlds = ['campus_laser']  #["hallway_laser","dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
         seeds = list(range(1))
         controllers = ['dynamic_gap'] # ['teb']
@@ -717,7 +717,7 @@ class STDRMaster(mp.Process):
         if self.dynamic_obstacles:
             self.obstacle_goals = [x - self.trans for x in self.obstacle_goals]
             self.obstacle_backup_goals = [x - self.trans for x in self.obstacle_backup_goals]
-            self.num_obsts = 2
+            self.num_obsts = 15
             #self.new_goal_list = np.zeros(self.num_obsts)
 
         start = scenario.getStartingPose()
@@ -800,7 +800,8 @@ class STDRMaster(mp.Process):
 
         cli_args = [path + "/launch/" + controller_name + "_" + robot + "_controller.launch",
                     'robot_namespace:=robot' + str(self.num_obsts),
-                    'robot_radius:=' + str(0.2)]
+                    'robot_radius:=' + str(0.2),
+                    'num_obsts:=' + str(self.num_obsts)]
 
         roslaunch_args = cli_args[1:]
         roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
@@ -901,11 +902,13 @@ class STDRMaster(mp.Process):
             for i in range(0, self.num_obsts):
                 #print('spawning robot' + str(i))
 
-                #start = self.get_random_agent_start()
+                start = self.get_random_agent_start()
+                '''
                 if i == 0:
                     start = [9, 12]
                 else:
-                    start = [18, 12]
+                    start = [12, 12]
+                '''
                 #print('generated start: ', start)
                 self.obstacle_start_xs.append(start[0])
                 self.obstacle_start_ys.append(start[1])
