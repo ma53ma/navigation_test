@@ -14,8 +14,8 @@ class Agent:
     def __init__(self, num_obsts, world, start_xs, start_ys):
         # /move_base for TEB
         # /move_base_virtual for DGap
-        rospy.wait_for_service('/move_base_virtual/make_plan')
-        self.get_plan = rospy.ServiceProxy('/move_base_virtual/make_plan', GetPlan)
+        rospy.wait_for_service('/move_base/make_plan')
+        self.get_plan = rospy.ServiceProxy('/move_base/make_plan', GetPlan)
         self.rate = rospy.Rate(10.0)
         self.world = world
         self.plan_idx = 0

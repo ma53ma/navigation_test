@@ -50,17 +50,18 @@ class BumperChecker:
         self.sub = rospy.Subscriber("robot" + str(num_obsts) + "/bumpers", Range, self.bumperCB, queue_size=5)
         self.mod_sub = rospy.Subscriber("robot" + str(num_obsts) + "/mod_bumpers", Range, self.mod_bumperCB, queue_size=5)
 
-        self.collided = False
+        self.static_collision = False
+        self.dynamic_collision = False
 
     def bumperCB(self, data):
         if data.range < 0:
             print('~~~~~~~~~~~ NORMAL BUMPER COLLISION ~~~~~~~~~~~~~~')
-            self.collided = True
+            self.static_collision = True
 
     def mod_bumperCB(self, data):
         if data.range < 0:
             print('~~~~~~~~~~~ MOD BUMPER COLLISION ~~~~~~~~~~~~~~')
-            self.collided = True
+            self.dynamic_collision = True
 
 class OdomAccumulator:
     def __init__(self, num_obsts):
@@ -300,8 +301,8 @@ class MultiMasterCoordinator:
     def addTasks(self):
         worlds = ['campus_laser']  #["hallway_laser","dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
-        seeds = list(range(1))
-        controllers = ['dynamic_gap'] # ['teb']
+        seeds = list(range(20))
+        controllers = ['teb'] # ['teb']
         pi_selection = ['3.14159']
         taskid = 0
 
@@ -626,9 +627,12 @@ class STDRMaster(mp.Process):
                 state = client.get_state()
                 if state is not GoalStatus.ACTIVE and state is not GoalStatus.PENDING:
                     keep_waiting = False
-                elif bumper_checker.collided:
+                elif bumper_checker.static_collision:
                     keep_waiting = False
-                    result = "BUMPER_COLLISION"
+                    result = "STATIC_BUMPER_COLLISION"
+                elif bumper_checker.dynamic_collision:
+                    keep_waiting = False
+                    result = "DYNAMIC_BUMPER_COLLISION"
                 elif rospy.Time.now() - start_time > rospy.Duration(600):
                     keep_waiting = False
                     result = "TIMED_OUT"
