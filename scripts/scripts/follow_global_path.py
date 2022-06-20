@@ -18,7 +18,7 @@ class Agent:
         self.world = world
         self.controller = controller
         self.seed = int(seed) + 100  # need to change seed or else start and goal will be the same
-        print('self.seed: ', self.seed)
+        # print('self.seed: ', self.seed)
         np.random.seed(self.seed)
         self.start_xs = start_xs
         self.start_ys = start_ys
@@ -80,12 +80,12 @@ class Agent:
             robot_namespace = "robot" + str(i)
             self.need_plan[robot_namespace] = True
             self.plan_indices[robot_namespace] = 0
-            self.plan_publishers[robot_namespace] = rospy.Publisher(robot_namespace + "/global_path", PoseArray, queue_size=5)
+            self.plan_publishers[robot_namespace] = rospy.Publisher(robot_namespace + "/global_path", PoseArray, queue_size=2)
             self.tolerances[robot_namespace] = 0.5
             start = self.get_start(i)
             self.get_global_plan(start, robot_namespace, i)
 
-            self.odom_subs[robot_namespace] = rospy.Subscriber(robot_namespace + "/odom", Odometry, self.odom_CB, queue_size=5)
+            self.odom_subs[robot_namespace] = rospy.Subscriber(robot_namespace + "/odom", Odometry, self.odom_CB, queue_size=2)
             self.cmd_vel_pubs[robot_namespace] = rospy.Publisher(robot_namespace + "/cmd_vel", Twist, queue_size=5)
             self.error_min1s[robot_namespace] = np.array([0.0, 0.0])
             self.error_min2s[robot_namespace] = np.array([0.0, 0.0])
@@ -164,9 +164,9 @@ class Agent:
         known_map_to_map_static = self.tfBuffer.lookup_transform("map_static", "known_map", rospy.Time(), rospy.Duration(3.0))
 
         rand_int = np.random.randint(0, len(self.goal_regions))
-        print('rand_int: ', rand_int)
+        # print('rand_int: ', rand_int)
         rand_region = self.goal_regions[rand_int]
-        print('rand_region: ', rand_region)
+        # print('rand_region: ', rand_region)
         '''
         if i == 0:
             x_pos_in_init_frame = 15
@@ -177,9 +177,9 @@ class Agent:
         '''
 
         x_pos_in_init_frame = np.random.randint(rand_region[0], rand_region[2])
-        print('x_pos: ', x_pos_in_init_frame)
+        # print('x_pos: ', x_pos_in_init_frame)
         y_pos_in_init_frame = np.random.randint(rand_region[1], rand_region[3])
-        print('y_pos: ', y_pos_in_init_frame)
+        # print('y_pos: ', y_pos_in_init_frame)
         goal.pose.position.x = x_pos_in_init_frame - self.world_transform[0]
         goal.pose.position.y = y_pos_in_init_frame - self.world_transform[1]
         goal.pose.position.z = 0.0
@@ -192,7 +192,7 @@ class Agent:
         # print('start of : ', req.start.pose.position.x, req.start.pose.position.y)
         # print('goal of : ', req.goal.pose.position.x, req.goal.pose.position.y)
         plan_in_known_map = self.get_plan(req.start, req.goal, req.tolerance)
-        print('plan has length of: ', len(plan_in_known_map.plan.poses))
+        # print('plan has length of: ', len(plan_in_known_map.plan.poses))
         pub_pose_array = PoseArray()
         pub_pose_array.header.frame_id = "known_map"
         pub_pose_array.header.stamp = rospy.Time.now()

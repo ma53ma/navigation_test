@@ -31,19 +31,14 @@ import nav_msgs.srv
 from stdr_testing_scenarios import TestingScenarios
 
 from actionlib_msgs.msg import GoalStatusArray
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import Odometry, OccupancyGrid
 import rospy
 import csv
 import datetime
 import tf2_ros
 from stdr_testing_scenarios import SectorScenario, CampusScenario, FourthFloorScenario, SparseScenario, EmptyScenario, HallwayScenario
-import rosbag
-from tf2_msgs.msg import TFMessage
-from sensor_msgs.msg import LaserScan
+from ros_bag_recorder import RosbagRecorder
 
-from visualization_msgs.msg import MarkerArray
-from geometry_msgs.msg import PoseArray, Pose, PoseStamped, Quaternion
-from rosgraph_msgs.msg import Log
 
 class BumperChecker:
     def __init__(self, num_obsts):
@@ -83,76 +78,6 @@ class OdomAccumulator:
 
     def getPathLength(self):
         return self.path_length
-
-class ResultRecorder:
-    def __init__(self, taskid):
-        self.lock = threading.Lock()
-        self.tf_sub = rospy.Subscriber("tf", TFMessage, self.tf_cb, queue_size = 1000)
-        self.scan_sub = rospy.Subscriber("point_scan", LaserScan, self.scan_cb, queue_size = 5)
-        self.score_sub = rospy.Subscriber("traj_score", MarkerArray, self.score_cb, queue_size = 5)
-        self.traj_sub = rospy.Subscriber("all_traj_vis", MarkerArray, self.traj_cb, queue_size = 5)
-        self.exe_traj_sub = rospy.Subscriber("dg_traj", PoseArray, self.exe_traj_cb, queue_size = 5)
-
-        bagpath = "~/simulation_data/bagfile/" + str(datetime.datetime.now()) + "_" + str(taskid) + ".bag"
-        self.bagfilepath = os.path.expanduser(bagpath)
-        print("bag file = " + self.bagfilepath + "\n")
-        self.bagfile = rosbag.Bag(f=self.bagfilepath, mode='w', compression=rosbag.Compression.LZ4)
-        self.scan_data = None
-        self.tf_data = None
-        self.bag_closed = False
-
-    def exe_traj_cb(self, data):
-        if self.tf_data is None or self.bag_closed:
-            return
-        self.lock.acquire()
-        self.bagfile.write("dg_traj", data, self.tf_data.transforms[0].header.stamp)
-        self.lock.release()
-        rospy.logdebug("Exe Traj written")
-
-    def score_cb(self, data):
-        if self.tf_data is None or self.bag_closed:
-            return
-        self.lock.acquire()
-        self.bagfile.write("traj_score", data, self.tf_data.transforms[0].header.stamp)
-        self.lock.release()
-        rospy.logdebug("Score written")
-
-    def traj_cb(self, data):
-        if self.tf_data is None or self.bag_closed:
-            return
-        self.lock.acquire()
-        self.bagfile.write("all_traj_vis", data, self.tf_data.transforms[0].header.stamp)
-        self.lock.release()
-        rospy.logdebug("Traj written")
-
-    def scan_cb(self, data):
-        if self.bag_closed:
-            return
-        self.lock.acquire()
-        self.scan_data = data
-        self.bagfile.write("point_scan", data, data.header.stamp)
-        self.lock.release()
-        rospy.logdebug("Laserscan written")
-
-    def tf_cb(self, data):
-        if self.bag_closed:
-            return
-        self.lock.acquire()
-        self.tf_data = data
-        self.bagfile.write("tf", data, self.tf_data.transforms[0].header.stamp)
-        self.lock.release()
-        rospy.logdebug("tf written")
-
-    def done(self):
-        self.bag_closed = True
-        self.lock.acquire()
-        self.scan_sub.unregister()
-        self.tf_sub.unregister()
-        self.score_sub.unregister()
-        self.traj_sub.unregister()
-        self.bagfile.close()
-        self.lock.release()
-        rospy.logdebug("Result finished")
 
 def port_in_use(port):
     with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
@@ -301,7 +226,7 @@ class MultiMasterCoordinator:
     def addTasks(self):
         worlds = ['campus_laser']  #["hallway_laser","dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
-        seeds = list(range(1))
+        seeds = list(range(20))
         controllers = ['dynamic_gap'] # ['teb']
         pi_selection = ['3.14159']
         taskid = 0
@@ -600,7 +525,7 @@ class STDRMaster(mp.Process):
         odom_accumulator = OdomAccumulator(num_obsts)
 
         if record:
-            result_recorder = ResultRecorder(taskid)
+            result_recorder = RosbagRecorder(taskid, num_obsts)
 
         client = actionlib.SimpleActionClient('move_base', MoveBaseAction)  #
         print("waiting for server")
@@ -624,6 +549,7 @@ class STDRMaster(mp.Process):
         keep_waiting = True
         counter = 0
         result = None
+        collided = False
         while keep_waiting:
             try:
                 state = client.get_state()
@@ -632,9 +558,11 @@ class STDRMaster(mp.Process):
                 elif bumper_checker.static_collision:
                     keep_waiting = False
                     result = "STATIC_BUMPER_COLLISION"
+                    collided = True
                 elif bumper_checker.dynamic_collision:
                     keep_waiting = False
                     result = "DYNAMIC_BUMPER_COLLISION"
+                    collided = True
                 elif rospy.Time.now() - start_time > rospy.Duration(600):
                     keep_waiting = False
                     result = "TIMED_OUT"
@@ -646,12 +574,13 @@ class STDRMaster(mp.Process):
                 keep_waiting = "False"
 
         print(result)
+
         task_time = str(rospy.Time.now() - start_time)
         path_length = str(odom_accumulator.getPathLength())
 
         if record:
             print("Acquire Record Done")
-            result_recorder.done()
+            result_recorder.done(collided)
             print("Acquired")
 
         if result is None:
@@ -723,7 +652,7 @@ class STDRMaster(mp.Process):
         if self.dynamic_obstacles:
             self.obstacle_goals = [x - self.trans for x in self.obstacle_goals]
             self.obstacle_backup_goals = [x - self.trans for x in self.obstacle_backup_goals]
-            self.num_obsts = 4
+            self.num_obsts = 15
             #self.new_goal_list = np.zeros(self.num_obsts)
 
         start = scenario.getStartingPose()
