@@ -11,16 +11,29 @@ import tf2_ros
 import tf2_geometry_msgs
 
 class Agent:
-    def __init__(self, num_obsts, world, start_xs, start_ys):
+    def __init__(self, num_obsts, world, controller, seed, start_xs, start_ys):
         # /move_base for TEB
         # /move_base_virtual for DGap
-        rospy.wait_for_service('/move_base/make_plan')
-        self.get_plan = rospy.ServiceProxy('/move_base/make_plan', GetPlan)
+        self.num_obsts = num_obsts
+        self.world = world
+        self.controller = controller
+        self.seed = int(seed) + 100  # need to change seed or else start and goal will be the same
+        print('self.seed: ', self.seed)
+        np.random.seed(self.seed)
+        self.start_xs = start_xs
+        self.start_ys = start_ys
+        # print('self.controller: ', self.controller)
+        if self.controller == "dynamic_gap":
+            self.plan_topic = '/move_base_virtual/make_plan'
+        elif self.controller == "teb":
+            self.plan_topic = '/move_base/make_plan'
+        else:
+            print("CONTROLLER IS NOT ON LIST, NOT RUNNING PATHS")
+
+        rospy.wait_for_service(self.plan_topic)
+        self.get_plan = rospy.ServiceProxy(self.plan_topic, GetPlan)
         self.rate = rospy.Rate(10.0)
         self.world = world
-        self.plan_idx = 0
-        self.x = 0.0
-        self.y = 0.0
         self.plan = None
         self.agent_odoms = None
         self.odom_subs = {}
@@ -33,11 +46,10 @@ class Agent:
         self.tolerances = {}
         self.error_min1s = {}
         self.error_min2s = {}
-        self.prev_ts = {}
 
-        stripped_xs = start_xs[1:-1]
+        stripped_xs = self.start_xs[1:-1]
         self.split_xs = stripped_xs.split(',')
-        stripped_ys = start_ys[1:-1]
+        stripped_ys = self.start_ys[1:-1]
         self.split_ys = stripped_ys.split(',')
 
         self.tfBuffer = tf2_ros.Buffer()
@@ -77,7 +89,6 @@ class Agent:
             self.cmd_vel_pubs[robot_namespace] = rospy.Publisher(robot_namespace + "/cmd_vel", Twist, queue_size=5)
             self.error_min1s[robot_namespace] = np.array([0.0, 0.0])
             self.error_min2s[robot_namespace] = np.array([0.0, 0.0])
-            # self.prev_ts[robot_namespace] = rospy.Time.now().to_sec()
 
     def get_start(self, i):
         new_start = [int(self.split_xs[i]), int(self.split_ys[i])]
@@ -96,19 +107,13 @@ class Agent:
         ## Odom comes in as map_static, comes in as "PoseWithCovariance"
         robot_namespace = msg.child_frame_id
 
-        # map_static_to_known_map_trans = self.tfBuffer.lookup_transform("known_map", "map_static", rospy.Time(), rospy.Duration(3.0))
-
-        # odom_in_known_map = tf2_geometry_msgs.do_transform_pose(msg.pose, map_static_to_known_map_trans)
-
-        # Desired poses are all in known_map
+        # Desired poses are all in map_static
         desired_pose = self.plans[robot_namespace].poses[self.plan_indices[robot_namespace]]
 
         # print('desired_pose: ', desired_pose.pose.position.x, ', ', desired_pose.pose.position.y)
         # print('current_pose: ', msg.pose.pose.position.x, ', ', msg.pose.pose.position.y)
         x_diff = msg.pose.pose.position.x - desired_pose.pose.position.x
         y_diff = msg.pose.pose.position.y - desired_pose.pose.position.y
-
-        # print('delta_x: ', delta_x)
 
         # calculate cmd_vel
         try:
@@ -128,14 +133,11 @@ class Agent:
         twist = Twist()
         error_t = np.array([diff_in_robot_frame.vector.x, diff_in_robot_frame.vector.y])
         # t = rospy.Time.now().to_sec()
-        # d_error_d_t = (error_t - self.prev_errors[robot_namespace]) / (t - self.prev_ts[robot_namespace])
         avg_error = (error_t + self.error_min1s[robot_namespace] + self.error_min2s[robot_namespace]) / 3.0
-        # print('dt: ', (t - self.prev_ts[robot_namespace]), 'error_t: ', error_t, ', prev_error: ', self.prev_errors[robot_namespace], ', d_error_d_t: ', d_error_d_t)
         cmd_vel = self.get_cmd_vel(avg_error)
 
         self.error_min2s[robot_namespace] = self.error_min1s[robot_namespace]
         self.error_min1s[robot_namespace] = error_t
-        # self.prev_ts[robot_namespace] = t
         # print('x_vel: ', x_vel, ', y_vel: ', y_vel)
         twist.linear.x = cmd_vel[0]
         twist.linear.y = cmd_vel[1]
@@ -161,7 +163,10 @@ class Agent:
 
         known_map_to_map_static = self.tfBuffer.lookup_transform("map_static", "known_map", rospy.Time(), rospy.Duration(3.0))
 
-        rand_region = self.goal_regions[np.random.randint(0, len(self.goal_regions))]
+        rand_int = np.random.randint(0, len(self.goal_regions))
+        print('rand_int: ', rand_int)
+        rand_region = self.goal_regions[rand_int]
+        print('rand_region: ', rand_region)
         '''
         if i == 0:
             x_pos_in_init_frame = 15
@@ -172,7 +177,9 @@ class Agent:
         '''
 
         x_pos_in_init_frame = np.random.randint(rand_region[0], rand_region[2])
+        print('x_pos: ', x_pos_in_init_frame)
         y_pos_in_init_frame = np.random.randint(rand_region[1], rand_region[3])
+        print('y_pos: ', y_pos_in_init_frame)
         goal.pose.position.x = x_pos_in_init_frame - self.world_transform[0]
         goal.pose.position.y = y_pos_in_init_frame - self.world_transform[1]
         goal.pose.position.z = 0.0
@@ -185,7 +192,7 @@ class Agent:
         # print('start of : ', req.start.pose.position.x, req.start.pose.position.y)
         # print('goal of : ', req.goal.pose.position.x, req.goal.pose.position.y)
         plan_in_known_map = self.get_plan(req.start, req.goal, req.tolerance)
-        # print('plan has length of: ', len(self.plans[robot_namespace].plan.poses))
+        print('plan has length of: ', len(plan_in_known_map.plan.poses))
         pub_pose_array = PoseArray()
         pub_pose_array.header.frame_id = "known_map"
         pub_pose_array.header.stamp = rospy.Time.now()
@@ -229,8 +236,10 @@ if __name__ == '__main__':
         world = rospy.get_param("~world")
         start_xs = rospy.get_param("~start_xs")
         start_ys = rospy.get_param("~start_ys")
+        controller = rospy.get_param("~controller")
+        seed = rospy.get_param("~seed")
         #print("robot namespace: ", robot_namespace)
-        Agent(num_obsts, world, start_xs, start_ys)
+        Agent(num_obsts, world, controller, seed, start_xs, start_ys)
         rospy.spin()
     except rospy.ROSInterruptException:
         pass

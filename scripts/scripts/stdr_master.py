@@ -301,8 +301,8 @@ class MultiMasterCoordinator:
     def addTasks(self):
         worlds = ['campus_laser']  #["hallway_laser","dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
-        seeds = list(range(20))
-        controllers = ['teb'] # ['teb']
+        seeds = list(range(1))
+        controllers = ['dynamic_gap'] # ['teb']
         pi_selection = ['3.14159']
         taskid = 0
 
@@ -467,6 +467,8 @@ class STDRMaster(mp.Process):
                                 cli_args = [path + "/launch/agent_global_path_manager.launch",
                                                     'num_obsts:=' + str(self.num_obsts),
                                                     'world:=' + str(task["world"]),
+                                                    'controller:=' + str(task["controller"]),
+                                                    'seed:=' + str(task['seed']),
                                                     'start_xs:=' + str(self.obstacle_start_xs),
                                                     'start_ys:=' + str(self.obstacle_start_ys)]
                                 roslaunch_args = cli_args[1:]
@@ -721,7 +723,7 @@ class STDRMaster(mp.Process):
         if self.dynamic_obstacles:
             self.obstacle_goals = [x - self.trans for x in self.obstacle_goals]
             self.obstacle_backup_goals = [x - self.trans for x in self.obstacle_backup_goals]
-            self.num_obsts = 15
+            self.num_obsts = 4
             #self.new_goal_list = np.zeros(self.num_obsts)
 
         start = scenario.getStartingPose()
@@ -872,6 +874,8 @@ class STDRMaster(mp.Process):
 
         map_num = "GM_PARAM_MAP_NUM"
         seed_num = str(task['seed'])
+        np.random.seed(task["seed"])
+
         os.environ[map_num] = seed_num
         print("Setting environment variable [" + map_num + "] to '" + seed_num + "'")
 
