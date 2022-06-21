@@ -50,12 +50,12 @@ class BumperChecker:
 
     def bumperCB(self, data):
         if data.range < 0:
-            print('~~~~~~~~~~~ NORMAL BUMPER COLLISION ~~~~~~~~~~~~~~')
+            print('~~~~~~~~~~~ STATIC BUMPER COLLISION ~~~~~~~~~~~~~~')
             self.static_collision = True
 
     def mod_bumperCB(self, data):
         if data.range < 0:
-            print('~~~~~~~~~~~ MOD BUMPER COLLISION ~~~~~~~~~~~~~~')
+            print('~~~~~~~~~~~ DYNAMIC BUMPER COLLISION ~~~~~~~~~~~~~~')
             self.dynamic_collision = True
 
 class OdomAccumulator:
@@ -226,7 +226,7 @@ class MultiMasterCoordinator:
     def addTasks(self):
         worlds = ['campus_laser']  #["hallway_laser","dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
-        seeds = list(range(20))
+        seeds = list(range(7, 8))
         controllers = ['dynamic_gap'] # ['teb']
         pi_selection = ['3.14159']
         taskid = 0
@@ -900,7 +900,7 @@ class STDRMaster(mp.Process):
 
 
 if __name__ == "__main__":
-    master = MultiMasterCoordinator(1, record=False)
+    master = MultiMasterCoordinator(1, record=True)
     start_time = time.time()
     master.start()
     master.addTasks()

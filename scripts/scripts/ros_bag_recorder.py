@@ -27,6 +27,7 @@ class RosbagRecorder:
         self.score_sub = rospy.Subscriber("traj_score", MarkerArray, self.score_cb, queue_size = 2)
         self.traj_sub = rospy.Subscriber("all_traj_vis", MarkerArray, self.traj_cb, queue_size = 2)
         self.scan_sub = rospy.Subscriber("point_scan", LaserScan, self.scan_cb, queue_size = 2)
+        self.prop_scan_sub = rospy.Subscriber("propagated_egocircle", LaserScan, self.prop_scan_cb, queue_size = 2)
         self.tf_sub = rospy.Subscriber("tf", TFMessage, self.tf_cb, queue_size = 1000)  # we need robot1_laser_0 frame
         self.map_sub = rospy.Subscriber("map", OccupancyGrid, self.map_cb, queue_size = 5)
         self.dg_model_pos_sub = rospy.Subscriber("dg_model_pos", MarkerArray, self.dg_model_pos_cb, queue_size=5)
@@ -64,6 +65,15 @@ class RosbagRecorder:
         self.bag_file.write("all_traj_vis", data, self.tf_data.transforms[0].header.stamp)
         self.lock.release()
         rospy.logdebug("Traj written")
+
+    def prop_scan_cb(self, data):
+        if self.bag_closed:
+            return
+        self.lock.acquire()
+        self.scan_data = data
+        self.bag_file.write("propagated_egocircle", data, data.header.stamp)
+        self.lock.release()
+        rospy.logdebug("propagated_egocircle written")
 
     def scan_cb(self, data):
         if self.bag_closed:
@@ -200,7 +210,7 @@ class RosbagRecorder:
         self.dg_model_vel_sub.unregister()
         self.po_dir_sub.unregister()
         self.reachable_gap_sub.unregister()
-
+        self.prop_scan_sub.unregister()
         self.scan_sub.unregister()
         self.tf_sub.unregister()
         self.score_sub.unregister()
