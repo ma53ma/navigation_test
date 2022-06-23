@@ -224,15 +224,15 @@ class MultiMasterCoordinator:
 
     # This list should be elsewhere, possibly in the configs package
     def addTasks(self):
-        worlds = ['campus_laser']  #["hallway_laser","dense_laser", "campus_laser", "sector_laser", "office_laser"] # "dense_laser", "campus_laser", "sector_laser", "office_laser"
+        worlds = ['empty']  #["hallway","dense", "campus", "sector", "office"]
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
-        seeds = list(range(5, 6))
+        seeds = list(range(1))
         controllers = ['dynamic_gap'] # ['teb']
         pi_selection = ['3.14159']
         taskid = 0
 
         # Nonholonomic dynamic Gap Experiments
-        # for world in ["office_laser"]:
+        # for world in ["office"]:
         for world in worlds:
             self.world_queue.append(world)
             for robot in ['holonomic']:
@@ -247,7 +247,7 @@ class MultiMasterCoordinator:
                                     'seed' : seed,
                                     "taskid" : taskid,
                                     'controller_args': {
-                                        'far_feasible' : str(world != 'office_laser'),
+                                        'far_feasible' : str(world != 'office'),
                                         'holonomic' : str(robot == 'holonomic')
                                         }
                                     }
@@ -617,19 +617,19 @@ class STDRMaster(mp.Process):
         print(task["world"])
         trans = [0, 0]
 
-        if task["world"] == "sector_laser":
+        if task["world"] == "sector":
             scenario = SectorScenario(task, "world")
             trans[0] = 10.217199
             trans[1] = 10.1176
-        elif task["world"] == "office_laser":
+        elif task["world"] == "office":
             scenario = FourthFloorScenario(task, "world")
             trans[0] = 43.173023
             trans[1] = 30.696842
-        elif task["world"] == "dense_laser":
+        elif task["world"] == "dense":
             scenario = SparseScenario(task, "world")
             trans[0] = 9.955517
             trans[1] = 9.823917
-        elif task["world"] == "campus_laser":
+        elif task["world"] == "campus":
             scenario = CampusScenario(task, "world")
             self.trans[0] = 14.990204
             self.trans[1] = 13.294787
@@ -638,12 +638,12 @@ class STDRMaster(mp.Process):
             #print('original goal: ', scenario.getGoal())
             #self.obstacle_goals = scenario.obstacle_goals
             # location [1,1] in map_static (need transform between map_static and known_map
-        elif task["world"] == "empty_laser":
+        elif task["world"] == "empty":
             scenario = EmptyScenario(task, "world")
             self.trans[0] = 13.630
             self.trans[1] = 13.499
             self.valid_regions = scenario.valid_regions
-        elif task["world"] == "hallway_laser":
+        elif task["world"] == "hallway":
             scenario = HallwayScenario(task, "world")
             self.trans[0] = 18.666
             self.trans[1] = 16.971
@@ -652,7 +652,7 @@ class STDRMaster(mp.Process):
         if self.dynamic_obstacles:
             self.obstacle_goals = [x - self.trans for x in self.obstacle_goals]
             self.obstacle_backup_goals = [x - self.trans for x in self.obstacle_backup_goals]
-            self.num_obsts = 15
+            self.num_obsts = 2
             #self.new_goal_list = np.zeros(self.num_obsts)
 
         start = scenario.getStartingPose()
@@ -839,14 +839,12 @@ class STDRMaster(mp.Process):
             for i in range(0, self.num_obsts):
                 #print('spawning robot' + str(i))
 
-                start = self.get_random_agent_start()
-                '''
+                # start = self.get_random_agent_start()
                 if i == 0:
-                    start = [9, 12]
+                    start = [10, 12]
                 else:
                     start = [12, 12]
-                '''
-                #print('generated start: ', start)
+                # print('generated start: ', start)
                 self.obstacle_start_xs.append(start[0])
                 self.obstacle_start_ys.append(start[1])
                 ## GIVING GOAL ##
@@ -900,7 +898,7 @@ class STDRMaster(mp.Process):
 
 
 if __name__ == "__main__":
-    master = MultiMasterCoordinator(1, record=True)
+    master = MultiMasterCoordinator(1, record=False)
     start_time = time.time()
     master.start()
     master.addTasks()

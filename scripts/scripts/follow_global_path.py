@@ -68,11 +68,11 @@ class Agent:
         self.empty_world_transform = [13.630, 13.499]
         self.campus_world_transform = [14.990204, 13.294787]
 
-        world = "campus"
-        if world == "empty":
+        # print('self.world: ', self.world)
+        if self.world == "empty":
             self.world_transform = self.empty_world_transform
             self.goal_regions = self.empty_goal_regions
-        elif world == "campus":
+        elif self.world == "campus":
             self.world_transform = self.campus_world_transform
             self.goal_regions = self.campus_goal_regions
 
@@ -93,11 +93,13 @@ class Agent:
     def get_start(self, i):
         new_start = [int(self.split_xs[i]), int(self.split_ys[i])]
 
+        # print('pre_transform start: ', new_start)
         start = PoseStamped()
         start.header.frame_id = "known_map"
         start.header.stamp = rospy.Time.now()
         start.pose.position.x = new_start[0] - self.world_transform[0]
         start.pose.position.y = new_start[1] - self.world_transform[1]
+        # print('post_transform start: ', start.pose.position.x, ', ', start.pose.position.y)
         start.pose.position.z = 0.0
         start.pose.orientation.w = 1.0
 
@@ -110,8 +112,8 @@ class Agent:
         # Desired poses are all in map_static
         desired_pose = self.plans[robot_namespace].poses[self.plan_indices[robot_namespace]]
 
-        # print('desired_pose: ', desired_pose.pose.position.x, ', ', desired_pose.pose.position.y)
-        # print('current_pose: ', msg.pose.pose.position.x, ', ', msg.pose.pose.position.y)
+        # print('desired_pose for ', robot_namespace, ': ', desired_pose.pose.position.x, ', ', desired_pose.pose.position.y)
+        # print('current_pose ', robot_namespace, ': ', msg.pose.pose.position.x, ', ', msg.pose.pose.position.y)
         x_diff = msg.pose.pose.position.x - desired_pose.pose.position.x
         y_diff = msg.pose.pose.position.y - desired_pose.pose.position.y
 
@@ -138,9 +140,9 @@ class Agent:
 
         self.error_min2s[robot_namespace] = self.error_min1s[robot_namespace]
         self.error_min1s[robot_namespace] = error_t
-        # print('x_vel: ', x_vel, ', y_vel: ', y_vel)
         twist.linear.x = cmd_vel[0]
         twist.linear.y = cmd_vel[1]
+        # print('command vel for ', robot_namespace, ': ', twist.linear.x, ', y_vel: ', twist.linear.y)
         # print('twist: ', twist)
         self.cmd_vel_pubs[robot_namespace].publish(twist)
 
@@ -163,22 +165,20 @@ class Agent:
 
         known_map_to_map_static = self.tfBuffer.lookup_transform("map_static", "known_map", rospy.Time(), rospy.Duration(3.0))
 
-        rand_int = np.random.randint(0, len(self.goal_regions))
+        # rand_int = np.random.randint(0, len(self.goal_regions))
         # print('rand_int: ', rand_int)
-        rand_region = self.goal_regions[rand_int]
+        # rand_region = self.goal_regions[rand_int]
         # print('rand_region: ', rand_region)
-        '''
         if i == 0:
-            x_pos_in_init_frame = 15
+            x_pos_in_init_frame = 16
             y_pos_in_init_frame = 12
         else:
             x_pos_in_init_frame = 18
             y_pos_in_init_frame = 12
-        '''
 
-        x_pos_in_init_frame = np.random.randint(rand_region[0], rand_region[2])
+        # x_pos_in_init_frame = np.random.randint(rand_region[0], rand_region[2])
         # print('x_pos: ', x_pos_in_init_frame)
-        y_pos_in_init_frame = np.random.randint(rand_region[1], rand_region[3])
+        # y_pos_in_init_frame = np.random.randint(rand_region[1], rand_region[3])
         # print('y_pos: ', y_pos_in_init_frame)
         goal.pose.position.x = x_pos_in_init_frame - self.world_transform[0]
         goal.pose.position.y = y_pos_in_init_frame - self.world_transform[1]
@@ -205,7 +205,6 @@ class Agent:
             new_pose.pose.position.z = 0.5
             # print('original plan pose (known_map): ', new_pose.pose.position.x, ', ', new_pose.pose.position.y, ', ', new_pose.pose.position.z)
             new_pose_in_map_static = tf2_geometry_msgs.do_transform_pose(new_pose, known_map_to_map_static)
-
             pub_pose_array.poses.append(new_pose_in_map_static)
 
         # print('transformed plan pose (map_static): ', pub_pose_array.poses)

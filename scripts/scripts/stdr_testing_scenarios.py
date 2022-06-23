@@ -353,7 +353,7 @@ class EmptyScenario(TestingScenario):
         x = self.random.random()*(18) - 9
         y = self.random.random()*(18) - 9
 
-        pose = [0, 9, 3.14] # [0, y, 3.14]
+        pose = [0, 4, 3.14] # [0, y, 3.14]
         init_pose = self.getPoseMsg(pose=pose)
         pose_stamped = PoseStamped()
         pose_stamped.pose = init_pose
