@@ -170,10 +170,10 @@ class Agent:
         # rand_region = self.goal_regions[rand_int]
         # print('rand_region: ', rand_region)
         if i == 0:
-            x_pos_in_init_frame = 16
+            x_pos_in_init_frame = 18
             y_pos_in_init_frame = 12
         else:
-            x_pos_in_init_frame = 18
+            x_pos_in_init_frame = 10
             y_pos_in_init_frame = 12
 
         # x_pos_in_init_frame = np.random.randint(rand_region[0], rand_region[2])
