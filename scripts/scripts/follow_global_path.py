@@ -91,7 +91,7 @@ class Agent:
             self.error_min2s[robot_namespace] = np.array([0.0, 0.0])
 
     def get_start(self, i):
-        new_start = [int(self.split_xs[i]), int(self.split_ys[i])]
+        new_start = [float(self.split_xs[i]), float(self.split_ys[i])]
 
         # print('pre_transform start: ', new_start)
         start = PoseStamped()
@@ -170,10 +170,10 @@ class Agent:
         # rand_region = self.goal_regions[rand_int]
         # print('rand_region: ', rand_region)
         if i == 0:
-            x_pos_in_init_frame = 18
+            x_pos_in_init_frame = 18.13
             y_pos_in_init_frame = 12
         else:
-            x_pos_in_init_frame = 10
+            x_pos_in_init_frame = 10.13
             y_pos_in_init_frame = 12
 
         # x_pos_in_init_frame = np.random.randint(rand_region[0], rand_region[2])
