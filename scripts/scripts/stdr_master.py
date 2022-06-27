@@ -224,7 +224,7 @@ class MultiMasterCoordinator:
 
     # This list should be elsewhere, possibly in the configs package
     def addTasks(self):
-        worlds = ['empty']  #["hallway","dense", "campus", "sector", "office"]
+        worlds = ['campus']  #["hallway","dense", "campus", "sector", "office"]
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
         seeds = list(range(1))
         controllers = ['dynamic_gap'] # ['teb']
@@ -652,7 +652,7 @@ class STDRMaster(mp.Process):
         if self.dynamic_obstacles:
             self.obstacle_goals = [x - self.trans for x in self.obstacle_goals]
             self.obstacle_backup_goals = [x - self.trans for x in self.obstacle_backup_goals]
-            self.num_obsts = 2
+            self.num_obsts = 15
             #self.new_goal_list = np.zeros(self.num_obsts)
 
         start = scenario.getStartingPose()
@@ -839,11 +839,13 @@ class STDRMaster(mp.Process):
             for i in range(0, self.num_obsts):
                 #print('spawning robot' + str(i))
 
-                # start = self.get_random_agent_start()
+                start = self.get_random_agent_start()
+                '''
                 if i == 0:
-                    start = [10.13, 12]
+                    start = [9.63, 12]
                 else:
-                    start = [18.13, 12]
+                    start = [17.63, 12]
+                '''
                 # print('generated start: ', start)
                 self.obstacle_start_xs.append(start[0])
                 self.obstacle_start_ys.append(start[1])
