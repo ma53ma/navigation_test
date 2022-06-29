@@ -165,21 +165,21 @@ class Agent:
 
         known_map_to_map_static = self.tfBuffer.lookup_transform("map_static", "known_map", rospy.Time(), rospy.Duration(3.0))
 
-        '''
+
         if i == 0:
-            x_pos_in_init_frame = 17.63
+            x_pos_in_init_frame = 16.63
             y_pos_in_init_frame = 12
         else:
-            x_pos_in_init_frame = 9.63
+            x_pos_in_init_frame = 18.63
             y_pos_in_init_frame = 12
-        '''
 
-        rand_int = np.random.randint(0, len(self.goal_regions))
+
+        # rand_int = np.random.randint(0, len(self.goal_regions))
         # print('rand_int: ', rand_int)
-        rand_region = self.goal_regions[rand_int]
+        # rand_region = self.goal_regions[rand_int]
         # print('rand_region: ', rand_region)
-        x_pos_in_init_frame = np.random.randint(rand_region[0], rand_region[2])
-        y_pos_in_init_frame = np.random.randint(rand_region[1], rand_region[3])
+        # x_pos_in_init_frame = np.random.randint(rand_region[0], rand_region[2])
+        # y_pos_in_init_frame = np.random.randint(rand_region[1], rand_region[3])
 
         # print('x_pos: ', x_pos_in_init_frame)
         # print('y_pos: ', y_pos_in_init_frame)
