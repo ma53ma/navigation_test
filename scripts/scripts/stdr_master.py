@@ -224,7 +224,7 @@ class MultiMasterCoordinator:
 
     # This list should be elsewhere, possibly in the configs package
     def addTasks(self):
-        worlds = ['empty']  #["hallway","dense", "campus", "sector", "office"]
+        worlds = ['campus']  #["hallway","dense", "campus", "sector", "office"]
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
         seeds = list(range(1))
         controllers = ['dynamic_gap'] # ['teb']
@@ -292,7 +292,7 @@ class STDRMaster(mp.Process):
 
         self.gui = True
         self.world_queue = []
-        self.dynamic_obstacles = True
+        self.dynamic_obstacles = False
         self.agent_launch = []
         self.obstacle_goals = []
         self.obstacle_start_xs = []
@@ -842,9 +842,9 @@ class STDRMaster(mp.Process):
                 # start = self.get_random_agent_start()
 
                 if i == 0:
-                    start = [11.63, 12]
+                    start = [9.63, 12]
                 else:
-                    start = [8.63, 12]
+                    start = [11.63, 12]
 
                 # print('generated start: ', start)
                 self.obstacle_start_xs.append(start[0])
