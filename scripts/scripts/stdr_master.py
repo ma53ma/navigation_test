@@ -842,9 +842,9 @@ class STDRMaster(mp.Process):
                 # start = self.get_random_agent_start()
 
                 if i == 0:
-                    start = [9.63, 12]
-                else:
                     start = [11.63, 12]
+                else:
+                    start = [8.63, 12]
 
                 # print('generated start: ', start)
                 self.obstacle_start_xs.append(start[0])
@@ -900,7 +900,7 @@ class STDRMaster(mp.Process):
 
 
 if __name__ == "__main__":
-    master = MultiMasterCoordinator(1, record=True)
+    master = MultiMasterCoordinator(1, record=False)
     start_time = time.time()
     master.start()
     master.addTasks()
