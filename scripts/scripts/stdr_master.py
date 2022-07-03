@@ -224,9 +224,9 @@ class MultiMasterCoordinator:
 
     # This list should be elsewhere, possibly in the configs package
     def addTasks(self):
-        worlds = ['campus']  #["hallway","dense", "campus", "sector", "office"]
+        worlds = ["campus"]  #["hallway","dense", "campus", "sector", "office"]
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
-        seeds = list(range(1))
+        seeds = list(range(2, 3))
         controllers = ['dynamic_gap'] # ['teb']
         pi_selection = ['3.14159']
         taskid = 0
@@ -900,7 +900,7 @@ class STDRMaster(mp.Process):
 
 
 if __name__ == "__main__":
-    master = MultiMasterCoordinator(1, record=False)
+    master = MultiMasterCoordinator(1, record=True)
     start_time = time.time()
     master.start()
     master.addTasks()
