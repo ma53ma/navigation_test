@@ -900,7 +900,7 @@ class STDRMaster(mp.Process):
 
 
 if __name__ == "__main__":
-    master = MultiMasterCoordinator(1, record=True)
+    master = MultiMasterCoordinator(1, record=False)
     start_time = time.time()
     master.start()
     master.addTasks()
