@@ -167,7 +167,7 @@ class Agent:
 
 
         if i == 0:
-            x_pos_in_init_frame = 16.63
+            x_pos_in_init_frame = 15.63
             y_pos_in_init_frame = 12
         else:
             x_pos_in_init_frame = 18.63
