@@ -842,9 +842,9 @@ class STDRMaster(mp.Process):
                 # start = self.get_random_agent_start()
 
                 if i == 0:
-                    start = [8.63, 12]
+                    start = [9.63, 12]
                 else:
-                    start = [11.63, 12]
+                    start = [17.63, 12]
 
                 # print('generated start: ', start)
                 self.obstacle_start_xs.append(start[0])
