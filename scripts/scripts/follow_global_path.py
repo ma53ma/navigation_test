@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 import rospy
 from nav_msgs.srv import GetPlan
 import numpy as np
