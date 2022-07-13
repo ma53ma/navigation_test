@@ -227,7 +227,7 @@ class MultiMasterCoordinator:
         worlds = ["empty"]  #["hallway","dense", "campus", "sector", "office"]
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
         seeds = list(range(1))
-        controllers = ['dynamic_gap'] # ['teb']
+        controllers = ['dynamic_gap'] # ['teb', 'potential_gap']
         pi_selection = ['3.14159']
         taskid = 0
 
@@ -350,7 +350,7 @@ class STDRMaster(mp.Process):
         # scenarios = TestingScenarios()
 
         self.had_error = False
-        path = rospack.get_path("dynamic_gap")
+        path = rospack.get_path("dynamic_gap") #   # "potential_gap"
         uuid = roslaunch.rlutil.get_or_generate_uuid(None, True)
 
 
@@ -702,7 +702,7 @@ class STDRMaster(mp.Process):
         print(controller_args.items())
 
         rospack = rospkg.RosPack()
-        path = rospack.get_path("dynamic_gap")
+        path = rospack.get_path("dynamic_gap") #  # "potential_gap"
 
         # We'll assume Gazebo is launched are ready to go
 
@@ -750,7 +750,7 @@ class STDRMaster(mp.Process):
 
     def roslaunch_teleop(self, controller_args):
         rospack = rospkg.RosPack()
-        path = rospack.get_path("dynamic_gap")
+        path = rospack.get_path("dynamic_gap") #  # "potential_gap"
 
         # We'll assume Gazebo is launched are ready to go
 
@@ -778,7 +778,7 @@ class STDRMaster(mp.Process):
         )
         self.spawner_launch.start()
 
-        path = rospack.get_path("dynamic_gap")
+        path = rospack.get_path("dynamic_gap") #  # "potential_gap"
 
         cli_args = [path + "/launch/gap_tracker.launch",
                     'robot_namespace:=robot' + str(self.num_obsts),
@@ -816,7 +816,7 @@ class STDRMaster(mp.Process):
         print(world)
         # launch_file_name = "stdr_" + robot + "_" + world + fov + "_world.launch"
         launch_file_name = "stdr_" + world + "_world.launch"
-        path = rospack.get_path("dynamic_gap")
+        path = rospack.get_path("dynamic_gap") #  #  "potential_gap"
         # print('launch name: ', launch_file_name)
 
         with self.stdr_launch_mutex:
@@ -832,7 +832,7 @@ class STDRMaster(mp.Process):
 
     def spawn_obstacles(self):
         with self.stdr_launch_mutex:
-            path = rospack.get_path("dynamic_gap")
+            path = rospack.get_path("dynamic_gap") #  # "potential_gap"
             uuid = roslaunch.rlutil.get_or_generate_uuid(None, True)
 
             # print('num obsts: ', self.num_obsts)
@@ -842,9 +842,9 @@ class STDRMaster(mp.Process):
                 # start = self.get_random_agent_start()
 
                 if i == 0:
-                    start = [8.63, 12]
+                    start = [9.13, 12]  # [8.63, 12]
                 else:
-                    start = [18.63, 12]
+                    start = [11.63, 12]  # [18.63, 12]
 
                 # print('generated start: ', start)
                 self.obstacle_start_xs.append(start[0])
