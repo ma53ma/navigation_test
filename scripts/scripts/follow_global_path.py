@@ -46,6 +46,10 @@ class Agent:
         self.tolerances = {}
         self.error_min1s = {}
         self.error_min2s = {}
+        self.error_min3s = {}
+        self.errors = {}
+        self.ts = {}
+        self.t_min1s = {}
 
         stripped_xs = self.start_xs[1:-1]
         self.split_xs = stripped_xs.split(',')
@@ -87,8 +91,12 @@ class Agent:
 
             self.odom_subs[robot_namespace] = rospy.Subscriber(robot_namespace + "/odom", Odometry, self.odom_CB, queue_size=2)
             self.cmd_vel_pubs[robot_namespace] = rospy.Publisher(robot_namespace + "/cmd_vel", Twist, queue_size=5)
+            self.errors[robot_namespace] = np.array([0.0, 0.0])
             self.error_min1s[robot_namespace] = np.array([0.0, 0.0])
             self.error_min2s[robot_namespace] = np.array([0.0, 0.0])
+            self.error_min3s[robot_namespace] = np.array([0.0, 0.0])
+            self.ts[robot_namespace] = 1.0
+            self.t_min1s[robot_namespace] = 0.0
 
     def get_start(self, i):
         new_start = [float(self.split_xs[i]), float(self.split_ys[i])]
@@ -133,18 +141,26 @@ class Agent:
         diff_in_robot_frame = tf2_geometry_msgs.do_transform_vector3(diff_vect, map_static_to_robot_trans)
         #print('difference vector in robot0: ', diff_in_robot_0.vector.x, diff_in_robot_0.vector.y)
         twist = Twist()
-        error_t = np.array([diff_in_robot_frame.vector.x, diff_in_robot_frame.vector.y])
-        # t = rospy.Time.now().to_sec()
-        avg_error = (error_t + self.error_min1s[robot_namespace] + self.error_min2s[robot_namespace]) / 3.0
-        cmd_vel = self.get_cmd_vel(avg_error)
+        self.errors[robot_namespace] = np.array([diff_in_robot_frame.vector.x, diff_in_robot_frame.vector.y])
+        self.ts[robot_namespace] =  rospy.Time.now().to_sec()
 
-        self.error_min2s[robot_namespace] = self.error_min1s[robot_namespace]
-        self.error_min1s[robot_namespace] = error_t
+        # t = rospy.Time.now().to_sec()
+        avg_error = (self.errors[robot_namespace] + 
+                     self.error_min1s[robot_namespace] + 
+                     self.error_min2s[robot_namespace] +
+                     self.error_min3s[robot_namespace]) / 4.0
+        cmd_vel = self.get_cmd_vel(avg_error)
         twist.linear.x = cmd_vel[0]
         twist.linear.y = cmd_vel[1]
+        self.cmd_vel_pubs[robot_namespace].publish(twist)
+
+        self.error_min3s[robot_namespace] = self.error_min2s[robot_namespace]
+        self.error_min2s[robot_namespace] = self.error_min1s[robot_namespace]
+        self.error_min1s[robot_namespace] = self.errors[robot_namespace]
+        self.t_min1s[robot_namespace] = self.ts[robot_namespace]
+
         # print('command vel for ', robot_namespace, ': ', twist.linear.x, ', y_vel: ', twist.linear.y)
         # print('twist: ', twist)
-        self.cmd_vel_pubs[robot_namespace].publish(twist)
 
         delta_x = np.sqrt(np.square(x_diff) + np.square(y_diff))
         if delta_x < 0.4:
@@ -155,7 +171,7 @@ class Agent:
             self.plans[robot_namespace].poses = np.flip(self.plans[robot_namespace].poses, axis=0)
             # print('flipping plan')
 
-        self.plan_publishers[robot_namespace].publish(self.plans_to_publish[robot_namespace])
+        # self.plan_publishers[robot_namespace].publish(self.plans_to_publish[robot_namespace])
 
     def get_global_plan(self, start, robot_namespace, i):
 
@@ -220,10 +236,10 @@ class Agent:
         # print("trying self.plan.plan: ", self.plan.plan)
 
     def get_cmd_vel(self, error_t):
-        K_p = 0.75
+        K_p = 0.6         # 0.75 for ~0.3 m/s
+
         cmd_vel = K_p*error_t
-        # delta_x_norm = np.sqrt(np.square(diff_in_robot_0.vector.x) + np.square(diff_in_robot_0.vector.y))
-        # print('delta x norm: ', delta_x_norm)
+
         thresh = 0.50
         if np.abs(cmd_vel[0]) > thresh or np.abs(cmd_vel[1]) > thresh:
             return thresh * cmd_vel / (np.maximum(np.abs(cmd_vel[0]), np.abs(cmd_vel[1])))
