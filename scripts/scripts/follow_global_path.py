@@ -116,7 +116,7 @@ class Agent:
     def odom_CB(self, msg):
         ## Odom comes in as map_static, comes in as "PoseWithCovariance"
         robot_namespace = msg.child_frame_id
-
+        
         # Desired poses are all in map_static
         desired_pose = self.plans[robot_namespace].poses[self.plan_indices[robot_namespace]]
 
@@ -140,24 +140,24 @@ class Agent:
         #print('difference vector in known map: ', diff_vect.vector.x, diff_vect.vector.y)
         diff_in_robot_frame = tf2_geometry_msgs.do_transform_vector3(diff_vect, map_static_to_robot_trans)
         #print('difference vector in robot0: ', diff_in_robot_0.vector.x, diff_in_robot_0.vector.y)
-        twist = Twist()
         self.errors[robot_namespace] = np.array([diff_in_robot_frame.vector.x, diff_in_robot_frame.vector.y])
-        self.ts[robot_namespace] =  rospy.Time.now().to_sec()
 
-        # t = rospy.Time.now().to_sec()
-        avg_error = (self.errors[robot_namespace] + 
+        avg_error = (self.errors[robot_namespace] +
                      self.error_min1s[robot_namespace] + 
                      self.error_min2s[robot_namespace] +
                      self.error_min3s[robot_namespace]) / 4.0
+
         cmd_vel = self.get_cmd_vel(avg_error)
+        twist = Twist()
         twist.linear.x = cmd_vel[0]
-        twist.linear.y = cmd_vel[1]
+        twist.linear.y = cmd_vel[1]        
+        
         self.cmd_vel_pubs[robot_namespace].publish(twist)
 
+        
         self.error_min3s[robot_namespace] = self.error_min2s[robot_namespace]
         self.error_min2s[robot_namespace] = self.error_min1s[robot_namespace]
         self.error_min1s[robot_namespace] = self.errors[robot_namespace]
-        self.t_min1s[robot_namespace] = self.ts[robot_namespace]
 
         # print('command vel for ', robot_namespace, ': ', twist.linear.x, ', y_vel: ', twist.linear.y)
         # print('twist: ', twist)
@@ -172,6 +172,7 @@ class Agent:
             # print('flipping plan')
 
         # self.plan_publishers[robot_namespace].publish(self.plans_to_publish[robot_namespace])
+        
 
     def get_global_plan(self, start, robot_namespace, i):
 
