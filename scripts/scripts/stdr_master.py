@@ -385,9 +385,9 @@ class STDRMaster(mp.Process):
                             fov = "GM_PARAM_RBT_FOV"
                             seed_fov = str(task['fov'])
                             os.environ[fov] = seed_fov
-                            self.roslaunch_controller(task["robot"], task["controller"], controller_args)
+                            # self.roslaunch_controller(task["robot"], task["controller"], controller_args)
 
-                            # self.roslaunch_teleop(controller_args)
+                            self.roslaunch_teleop(controller_args)
                             if self.dynamic_obstacles:
                                 cli_args = [path + "/launch/agent_global_path_manager.launch",
                                                     'num_obsts:=' + str(self.num_obsts),
@@ -778,11 +778,12 @@ class STDRMaster(mp.Process):
         )
         self.spawner_launch.start()
 
-        path = rospack.get_path("dynamic_gap") #  # "potential_gap"
+        est_path = rospack.get_path("gap_estimation") #  # "potential_gap"
 
-        cli_args = [path + "/launch/gap_tracker.launch",
+        cli_args = [est_path + "/launch/gap_estimator.launch",
                     'robot_namespace:=robot' + str(self.num_obsts),
-                    'robot_radius:=' + str(0.2)]
+                    'robot_radius:=' + str(0.2),
+                    'num_obsts:=' + str(self.num_obsts)]
         roslaunch_args = cli_args[1:]
         roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
 
