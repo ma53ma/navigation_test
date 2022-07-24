@@ -723,7 +723,8 @@ class STDRMaster(mp.Process):
                     'robot_namespace:=robot' + str(self.num_obsts),
                     'rbtx:=' + os.environ["GM_PARAM_RBT_X"],
                     'rbty:=' + os.environ["GM_PARAM_RBT_Y"],
-                    'fov:=' + os.environ["GM_PARAM_RBT_FOV"]]
+                    'fov:=' + os.environ["GM_PARAM_RBT_FOV"],
+                    'robot_file:=holonomic_robot_second_order_360_bumper.xml']
         roslaunch_args = cli_args[1:]
         roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
 
@@ -768,7 +769,8 @@ class STDRMaster(mp.Process):
                     'robot_namespace:=robot' + str(self.num_obsts),
                     'rbtx:=' + os.environ["GM_PARAM_RBT_X"],
                     'rbty:=' + os.environ["GM_PARAM_RBT_Y"],
-                    'fov:=' + os.environ["GM_PARAM_RBT_FOV"]]
+                    'fov:=' + os.environ["GM_PARAM_RBT_FOV"],
+                    'robot_file:=holonomic_robot_second_order_360_bumper.xml']
         roslaunch_args = cli_args[1:]
         roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
 
