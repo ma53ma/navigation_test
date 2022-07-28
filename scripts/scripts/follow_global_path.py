@@ -120,8 +120,8 @@ class Agent:
         # Desired poses are all in map_static
         desired_pose = self.plans[robot_namespace].poses[self.plan_indices[robot_namespace]]
 
-        # print('desired_pose for ', robot_namespace, ': ', desired_pose.pose.position.x, ', ', desired_pose.pose.position.y)
-        # print('current_pose ', robot_namespace, ': ', msg.pose.pose.position.x, ', ', msg.pose.pose.position.y)
+        print('desired_pose for ' + robot_namespace + ': ' + str(desired_pose.pose.position.x) + ', ' + str(desired_pose.pose.position.y))
+        print('current_pose ' + robot_namespace + ': ' + str(msg.pose.pose.position.x) + ', ' + str(msg.pose.pose.position.y))
         x_diff = msg.pose.pose.position.x - desired_pose.pose.position.x
         y_diff = msg.pose.pose.position.y - desired_pose.pose.position.y
 
@@ -159,7 +159,7 @@ class Agent:
         self.error_min2s[robot_namespace] = self.error_min1s[robot_namespace]
         self.error_min1s[robot_namespace] = self.errors[robot_namespace]
 
-        # print('command vel for ', robot_namespace, ': ', twist.linear.x, ', y_vel: ', twist.linear.y)
+        print('command vel for ' + robot_namespace + ': ' + str(twist.linear.x) + ', y_vel: ' + str(twist.linear.y))
         # print('twist: ', twist)
 
         delta_x = np.sqrt(np.square(x_diff) + np.square(y_diff))
@@ -169,9 +169,9 @@ class Agent:
         if len(self.plans[robot_namespace].poses) <= self.plan_indices[robot_namespace]:
             self.plan_indices[robot_namespace] = 0
             self.plans[robot_namespace].poses = np.flip(self.plans[robot_namespace].poses, axis=0)
-            # print('flipping plan')
+            print(robot_namespace + ' flipping plan')
 
-        # self.plan_publishers[robot_namespace].publish(self.plans_to_publish[robot_namespace])
+        self.plan_publishers[robot_namespace].publish(self.plans_to_publish[robot_namespace])
         
 
     def get_global_plan(self, start, robot_namespace, i):
@@ -182,21 +182,21 @@ class Agent:
 
         known_map_to_map_static = self.tfBuffer.lookup_transform("map_static", "known_map", rospy.Time(), rospy.Duration(3.0))
 
-
+        '''
         if i == 0:
             x_pos_in_init_frame = 17.63
             y_pos_in_init_frame = 12
         else:
             x_pos_in_init_frame = 9.63
             y_pos_in_init_frame = 12
+        '''
 
-
-        # rand_int = np.random.randint(0, len(self.goal_regions))
+        rand_int = np.random.randint(0, len(self.goal_regions))
         # print('rand_int: ', rand_int)
-        # rand_region = self.goal_regions[rand_int]
+        rand_region = self.goal_regions[rand_int]
         # print('rand_region: ', rand_region)
-        # x_pos_in_init_frame = np.random.randint(rand_region[0], rand_region[2])
-        # y_pos_in_init_frame = np.random.randint(rand_region[1], rand_region[3])
+        x_pos_in_init_frame = np.random.randint(rand_region[0], rand_region[2])
+        y_pos_in_init_frame = np.random.randint(rand_region[1], rand_region[3])
 
         # print('x_pos: ', x_pos_in_init_frame)
         # print('y_pos: ', y_pos_in_init_frame)

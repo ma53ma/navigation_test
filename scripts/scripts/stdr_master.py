@@ -224,9 +224,9 @@ class MultiMasterCoordinator:
 
     # This list should be elsewhere, possibly in the configs package
     def addTasks(self):
-        worlds = ["empty"]  #["hallway","dense", "campus", "sector", "office"]
+        worlds = ["campus"]  #["hallway","dense", "campus", "sector", "office"]
         fovs = ['360'] #['90', '120', '180', '240', '300', '360']
-        seeds = list(range(1))
+        seeds = list(range(25))
         controllers = ['dynamic_gap'] # ['teb', 'potential_gap']
         pi_selection = ['3.14159']
         taskid = 0
@@ -388,6 +388,8 @@ class STDRMaster(mp.Process):
                             self.roslaunch_controller(task["robot"], task["controller"], controller_args)
 
                             # self.roslaunch_teleop(controller_args)
+
+                            # rospy.sleep(3.0)    
                             if self.dynamic_obstacles:
                                 cli_args = [path + "/launch/agent_global_path_manager.launch",
                                                     'num_obsts:=' + str(self.num_obsts),
@@ -404,7 +406,6 @@ class STDRMaster(mp.Process):
                                     is_core=False, port=self.ros_port  # , roslaunch_strs=controller_args
                                 )
                                 self.agent_global_path_manager_parent.start()
-                                rospy.sleep(1.0)
 
                             task.update(controller_args)    #Adding controller arguments to main task dict for easy logging
 
@@ -634,10 +635,6 @@ class STDRMaster(mp.Process):
             self.trans[0] = 14.990204
             self.trans[1] = 13.294787
             self.valid_regions = scenario.valid_regions
-            #print('original start: ', scenario.getStartingPose())
-            #print('original goal: ', scenario.getGoal())
-            #self.obstacle_goals = scenario.obstacle_goals
-            # location [1,1] in map_static (need transform between map_static and known_map
         elif task["world"] == "empty":
             scenario = EmptyScenario(task, "world")
             self.trans[0] = 13.630
@@ -652,8 +649,7 @@ class STDRMaster(mp.Process):
         if self.dynamic_obstacles:
             self.obstacle_goals = [x - self.trans for x in self.obstacle_goals]
             self.obstacle_backup_goals = [x - self.trans for x in self.obstacle_backup_goals]
-            self.num_obsts = 2
-            #self.new_goal_list = np.zeros(self.num_obsts)
+            self.num_obsts = 1
 
         start = scenario.getStartingPose()
         goal = scenario.getGoal()
@@ -842,12 +838,14 @@ class STDRMaster(mp.Process):
             for i in range(0, self.num_obsts):
                 #print('spawning robot' + str(i))
 
-                # start = self.get_random_agent_start()
-
+                start = self.get_random_agent_start()
+                
+                '''
                 if i == 0:
-                    start = [9.63, 12]  # [8.63, 12]
+                    start = [10.63, 12]  # [8.63, 12]
                 else:
-                    start = [17.63, 12]  # [18.63, 12]
+                    start = [16.63, 12]  # [18.63, 12]
+                '''
 
                 # print('generated start: ', start)
                 self.obstacle_start_xs.append(start[0])
